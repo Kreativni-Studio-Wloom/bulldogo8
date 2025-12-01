@@ -1,5 +1,7 @@
 // Packages functionality
 let selectedPlan = null;
+// Zpřístupnit globálně pro GoPay integraci
+window.selectedPlan = selectedPlan;
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
@@ -33,6 +35,8 @@ function selectPlan(plan, price) {
         plan: plan,
         price: parseInt(price)
     };
+    // Zpřístupnit globálně pro GoPay integraci
+    window.selectedPlan = selectedPlan;
 
     console.log('📦 Selected plan:', plan, 'Price:', price);
 
@@ -152,6 +156,7 @@ async function showSuccess() {
 function resetPackages() {
     // Reset all selections
     selectedPlan = null;
+    window.selectedPlan = null;
     
     // Hide all sections except pricing
     document.getElementById('paymentSection').style.display = 'none';
