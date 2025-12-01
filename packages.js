@@ -90,7 +90,15 @@ function updatePaymentSummary() {
     }
 }
 
-function processPayment() {
+async function processPayment() {
+    // Pokud existuje GoPay integrace, použij ji
+    if (typeof window.processGoPayPayment === 'function') {
+        return await window.processGoPayPayment();
+    }
+    
+    // Fallback na původní simulaci (pro testování bez GoPay)
+    console.warn('⚠️ GoPay integrace není načtena, používá se simulace platby');
+    
     // Show loading state
     const payButton = document.querySelector('.payment-actions .btn-primary');
     const originalText = payButton.innerHTML;
