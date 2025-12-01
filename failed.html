@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platba zrušena - Bulldogo.cz</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .failed-container {
+            max-width: 600px;
+            margin: 100px auto;
+            padding: 2rem;
+            text-align: center;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .failed-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+        .failed-title {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        .failed-message {
+            color: #666;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        .failed-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #ff6a00;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #e55a00;
+        }
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="failed-container">
+        <div class="failed-icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <h1 class="failed-title">Platba byla zrušena</h1>
+        <p class="failed-message">
+            Vaše platba byla zrušena nebo se nezdařila. Pokud jste zaplatili, kontaktujte nás prosím.
+        </p>
+        <div class="failed-actions">
+            <a href="packages.html" class="btn btn-primary">
+                <i class="fas fa-redo"></i> Zkusit znovu
+            </a>
+            <a href="index.html" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Domů
+            </a>
+        </div>
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script type="module" src="firebase-init.js"></script>
+    <script src="gopay-config.js" defer></script>
+    <script src="gopay-payment-handler.js" defer></script>
+    <script>
+        // Zpracování zrušené platby
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Zpracovat URL parametry z GoPay (i když je platba zrušena)
+                const gopayParams = window.parseGoPayReturnParams();
+                
+                if (gopayParams) {
+                    console.log('⚠️ Platba zrušena:', gopayParams);
+                    
+                    // Uložit informace o zrušené platbě do Firestore (pro záznam)
+                    try {
+                        await window.savePaymentToFirestore({
+                            ...gopayParams,
+                            state: 'CANCELED'
+                        });
+                    } catch (error) {
+                        console.error('⚠️ Chyba při ukládání zrušené platby:', error);
+                    }
+                }
+                
+                // Vyčistit sessionStorage
+                sessionStorage.removeItem('gopay_payment');
+                
+                // Vyčistit URL parametry
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+            } catch (error) {
+                console.error('❌ Chyba při zpracování zrušené platby:', error);
+            }
+        });
+    </script>
+</body>
+</html>
+

@@ -303,17 +303,68 @@ function updatePaymentSummary() {
 }
 
 function processPayment() {
-    // Show loading state
-    const payButton = document.querySelector('.payment-actions .btn-primary');
-    const originalText = payButton.innerHTML;
-    payButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Zpracovávám...';
-    payButton.disabled = true;
+    // Zkontrolovat, zda je vybrané topování
+    if (!selectedPricing || !selectedAd) {
+        alert("Prosím nejdříve vyberte inzerát a délku topování");
+        return;
+    }
     
-    // Simulate payment processing
-    setTimeout(() => {
-        // Simulate successful payment
-        showSuccess();
-    }, 2000);
+    // Zkontrolovat, zda je GoPay konfigurace načtena
+    if (typeof window.createGoPayUrl !== 'function') {
+        alert("GoPay konfigurace není načtena. Obnovte prosím stránku.");
+        return;
+    }
+    
+    try {
+        // Mapovat duration na GoPay ID
+        let topAdId;
+        if (selectedPricing.duration === 1) {
+            topAdId = 'oneday';
+        } else if (selectedPricing.duration === 7) {
+            topAdId = 'oneweek';
+        } else if (selectedPricing.duration === 30) {
+            topAdId = 'onemonth';
+        } else {
+            throw new Error('Neznámá délka topování: ' + selectedPricing.duration);
+        }
+        
+        // Získat platební URL
+        const paymentUrl = window.createGoPayUrl('topAd', topAdId);
+        
+        console.log('💳 Přesměrování na GoPay pro topování:', paymentUrl);
+        
+        // Zobrazit loading stav
+        const payButton = document.querySelector('.payment-actions .btn-primary');
+        const originalText = payButton.innerHTML;
+        payButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Přesměrovávám...';
+        payButton.disabled = true;
+        
+        // Uložit informace o platbě do sessionStorage
+        const paymentConfig = window.getPaymentConfig('topAd', topAdId);
+        sessionStorage.setItem('gopay_payment', JSON.stringify({
+            type: 'topAd',
+            id: topAdId,
+            orderNumber: paymentConfig.orderNumber,
+            amount: paymentConfig.amount,
+            duration: selectedPricing.duration,
+            adId: selectedAd.id,
+            timestamp: Date.now()
+        }));
+        
+        // Přesměrovat na GoPay platební bránu
+        window.location.href = paymentUrl;
+        
+    } catch (error) {
+        console.error('❌ Chyba při vytváření platební URL:', error);
+        alert("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.");
+        
+        // Obnovit tlačítko
+        const payButton = document.querySelector('.payment-actions .btn-primary');
+        if (payButton) {
+            payButton.innerHTML = '<i class="fas fa-credit-card"></i> Zaplatit';
+            payButton.disabled = false;
+        }
+    }
 }
 
 function showSuccess() {
