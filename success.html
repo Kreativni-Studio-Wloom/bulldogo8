@@ -105,14 +105,25 @@
                 // 1. Zpracovat URL parametry z GoPay
                 const gopayParams = window.parseGoPayReturnParams();
                 
-                if (gopayParams && gopayParams.idPaymentSession) {
+                console.log('🔍 Zpracovávám GoPay parametry:', gopayParams);
+                console.log('🔍 URL parametry:', window.location.search);
+                
+                // Zkontrolovat, zda jsou nějaké parametry (idPaymentSession, paymentSessionId, nebo orderNumber)
+                if (gopayParams && (gopayParams.idPaymentSession || gopayParams.paymentSessionId || gopayParams.orderNumber)) {
                     console.log('✅ GoPay parametry nalezeny:', gopayParams);
                     
+                    // Pokud není state, ale je orderNumber, pravděpodobně je to úspěšná platba
+                    if (!gopayParams.state && gopayParams.orderNumber) {
+                        gopayParams.state = 'PAID';
+                        console.log('ℹ️ Nastavuji state na PAID (není v URL parametrech)');
+                    }
+                    
                     // Zobrazit informace o platbě
+                    const paymentId = gopayParams.idPaymentSession || gopayParams.paymentSessionId || 'N/A';
                     const amount = gopayParams.totalPrice ? (parseInt(gopayParams.totalPrice) / 100).toFixed(2) : 'N/A';
                     paymentDetails.style.display = 'block';
                     paymentInfo.innerHTML = `
-                        <strong>ID platby:</strong> ${gopayParams.idPaymentSession}<br>
+                        <strong>ID platby:</strong> ${paymentId}<br>
                         <strong>Stav:</strong> ${gopayParams.state || 'PAID'}<br>
                         <strong>Částka:</strong> ${amount} ${gopayParams.currency || 'CZK'}<br>
                         <strong>Objednávka:</strong> ${gopayParams.orderNumber || 'N/A'}<br>
@@ -120,23 +131,53 @@
                         ${gopayParams.paymentMethod ? `<strong>Způsob platby:</strong> ${gopayParams.paymentMethod}<br>` : ''}
                     `;
                     
-                    // 2. Uložit do Firestore
-                    try {
-                        const orderNumber = await window.savePaymentToFirestore(gopayParams);
-                        console.log('✅ Platba uložena do Firestore:', orderNumber);
-                    } catch (error) {
-                        console.error('⚠️ Chyba při ukládání do Firestore:', error);
+                    // Získat orderNumber z URL nebo sessionStorage
+                    let orderNumber = gopayParams.orderNumber;
+                    if (!orderNumber) {
+                        // Fallback: zkusit získat z sessionStorage
+                        const paymentData = sessionStorage.getItem('gopay_payment');
+                        if (paymentData) {
+                            try {
+                                const payment = JSON.parse(paymentData);
+                                orderNumber = payment.orderNumber;
+                                console.log('ℹ️ OrderNumber získáno z sessionStorage:', orderNumber);
+                                // Přidat orderNumber do gopayParams pro další zpracování
+                                gopayParams.orderNumber = orderNumber;
+                            } catch (e) {
+                                console.warn('⚠️ Nelze parsovat sessionStorage:', e);
+                            }
+                        }
                     }
                     
-                    // 3. Aktivovat plán
-                    const paymentType = window.getPaymentTypeFromOrderNumber(gopayParams.orderNumber);
-                    if (paymentType) {
+                    // 2. Uložit do Firestore
+                    if (orderNumber) {
                         try {
-                            await window.activatePlanFromPayment(gopayParams, paymentType);
-                            console.log('✅ Plán aktivován:', paymentType);
+                            console.log('💾 Ukládám platbu do Firestore...');
+                            const savedOrderNumber = await window.savePaymentToFirestore(gopayParams);
+                            console.log('✅ Platba uložena do Firestore:', savedOrderNumber);
                         } catch (error) {
-                            console.error('⚠️ Chyba při aktivaci plánu:', error);
+                            console.error('❌ Chyba při ukládání do Firestore:', error);
+                            console.error('❌ Error details:', error.message, error.stack);
                         }
+                        
+                        // 3. Aktivovat plán
+                        const paymentType = window.getPaymentTypeFromOrderNumber(orderNumber);
+                        console.log('🔍 Payment type pro orderNumber:', orderNumber, '→', paymentType);
+                        
+                        if (paymentType) {
+                            try {
+                                console.log('🎯 Aktivuji plán...', paymentType);
+                                await window.activatePlanFromPayment(gopayParams, paymentType);
+                                console.log('✅ Plán aktivován:', paymentType);
+                            } catch (error) {
+                                console.error('❌ Chyba při aktivaci plánu:', error);
+                                console.error('❌ Error details:', error.message, error.stack);
+                            }
+                        } else {
+                            console.warn('⚠️ Nelze najít payment type pro orderNumber:', orderNumber);
+                        }
+                    } else {
+                        console.warn('⚠️ Chybí orderNumber - nelze uložit ani aktivovat plán. Zkontrolujte URL parametry nebo sessionStorage.');
                     }
                     
                 } else {

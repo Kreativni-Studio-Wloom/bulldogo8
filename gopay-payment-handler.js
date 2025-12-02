@@ -11,21 +11,27 @@ function parseGoPayReturnParams() {
     const urlParams = new URLSearchParams(window.location.search);
     
     // GoPay vrací tyto parametry v URL
+    // Může být idPaymentSession nebo paymentSessionId (podle verze GoPay)
+    const paymentSessionId = urlParams.get('idPaymentSession') || urlParams.get('paymentSessionId');
+    
     const params = {
-        idPaymentSession: urlParams.get('idPaymentSession'),
-        state: urlParams.get('state'),
+        idPaymentSession: paymentSessionId,
+        paymentSessionId: paymentSessionId, // Duplicitní pro kompatibilitu
+        state: urlParams.get('state') || (urlParams.get('paymentSessionId') ? 'CANCELED' : null), // Pokud je paymentSessionId ale není state, pravděpodobně zrušená
         totalPrice: urlParams.get('totalPrice'),
         currency: urlParams.get('currency'),
         orderNumber: urlParams.get('orderNumber'),
         productName: urlParams.get('productName'),
         targetGoId: urlParams.get('targetGoId'),
+        encryptedSignature: urlParams.get('encryptedSignature'),
         // Další možné parametry
         paymentMethod: urlParams.get('paymentMethod'),
         payer: urlParams.get('payer'),
     };
     
     // Pokud jsou nějaké parametry, vrať je
-    if (params.idPaymentSession || params.orderNumber || params.state) {
+    // Podporujeme paymentSessionId (zrušená platba) i idPaymentSession (úspěšná platba)
+    if (params.idPaymentSession || params.paymentSessionId || params.orderNumber || params.state) {
         return params;
     }
     
@@ -64,23 +70,30 @@ async function savePaymentToFirestore(paymentInfo) {
         
         // Uložit záznam o platbě
         const orderNumber = paymentInfo.orderNumber || `ORDER-${Date.now()}`;
+        const gopayId = paymentInfo.idPaymentSession || paymentInfo.paymentSessionId || null;
+        const state = paymentInfo.state || 'PAID'; // Pokud není state, předpokládáme PAID (úspěšná platba)
+        
+        const paymentData = {
+            gopayId: gopayId,
+            orderNumber: orderNumber,
+            userId: user.uid,
+            state: state,
+            amount: paymentInfo.totalPrice ? parseInt(paymentInfo.totalPrice) / 100 : 0, // převod z haléřů
+            currency: paymentInfo.currency || 'CZK',
+            productName: paymentInfo.productName || '',
+            paymentMethod: paymentInfo.paymentMethod || null,
+            payer: paymentInfo.payer || null,
+            createdAt: now,
+            updatedAt: now,
+            returnUrl: window.location.href,
+            rawParams: paymentInfo, // Uložit všechny parametry pro debugging
+        };
+        
+        console.log('💾 Ukládám do Firestore:', paymentData);
+        
         await setDoc(
             doc(window.firebaseDb, 'payments', orderNumber),
-            {
-                gopayId: paymentInfo.idPaymentSession || null,
-                orderNumber: orderNumber,
-                userId: user.uid,
-                state: paymentInfo.state || 'UNKNOWN',
-                amount: paymentInfo.totalPrice ? parseInt(paymentInfo.totalPrice) / 100 : 0, // převod z haléřů
-                currency: paymentInfo.currency || 'CZK',
-                productName: paymentInfo.productName || '',
-                paymentMethod: paymentInfo.paymentMethod || null,
-                payer: paymentInfo.payer || null,
-                createdAt: now,
-                updatedAt: now,
-                returnUrl: window.location.href,
-                rawParams: paymentInfo, // Uložit všechny parametry pro debugging
-            },
+            paymentData,
             { merge: true }
         );
         

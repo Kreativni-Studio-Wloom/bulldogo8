@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Kontrola platby</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .warning { color: #ffc107; }
+        pre { background: #fff; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+    <script type="module" src="firebase-init.js"></script>
+    <script src="gopay-config.js" defer></script>
+    <script src="gopay-payment-handler.js" defer></script>
+</head>
+<body>
+    <h1>🔍 Debug - Kontrola platby</h1>
+    
+    <div class="section">
+        <h2>1. URL parametry</h2>
+        <pre id="urlParams"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>2. SessionStorage</h2>
+        <pre id="sessionStorage"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>3. Firebase Auth</h2>
+        <pre id="firebaseAuth"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>4. GoPay parametry</h2>
+        <pre id="gopayParams"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>5. Payment Type</h2>
+        <pre id="paymentType"></pre>
+    </div>
+    
+    <div class="section">
+        <h2>6. Test uložení</h2>
+        <button onclick="testSave()">Testovat uložení do Firestore</button>
+        <pre id="testResult"></pre>
+    </div>
+    
+    <script>
+        // Zkontrolovat vše
+        function checkAll() {
+            // 1. URL parametry
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramsObj = {};
+            for (const [key, value] of urlParams.entries()) {
+                paramsObj[key] = value;
+            }
+            document.getElementById('urlParams').textContent = JSON.stringify(paramsObj, null, 2);
+            
+            // 2. SessionStorage
+            const sessionData = sessionStorage.getItem('gopay_payment');
+            document.getElementById('sessionStorage').textContent = sessionData ? JSON.stringify(JSON.parse(sessionData), null, 2) : 'Žádná data';
+            
+            // 3. Firebase Auth
+            const authCheck = {
+                firebaseAuth: !!window.firebaseAuth,
+                firebaseDb: !!window.firebaseDb,
+                currentUser: window.firebaseAuth?.currentUser ? {
+                    uid: window.firebaseAuth.currentUser.uid,
+                    email: window.firebaseAuth.currentUser.email
+                } : null
+            };
+            document.getElementById('firebaseAuth').textContent = JSON.stringify(authCheck, null, 2);
+            
+            // 4. GoPay parametry
+            if (typeof window.parseGoPayReturnParams === 'function') {
+                const gopayParams = window.parseGoPayReturnParams();
+                document.getElementById('gopayParams').textContent = JSON.stringify(gopayParams, null, 2);
+                
+                // 5. Payment Type
+                if (gopayParams && gopayParams.orderNumber) {
+                    const paymentType = window.getPaymentTypeFromOrderNumber(gopayParams.orderNumber);
+                    document.getElementById('paymentType').textContent = JSON.stringify(paymentType, null, 2);
+                } else {
+                    document.getElementById('paymentType').textContent = 'Chybí orderNumber';
+                }
+            } else {
+                document.getElementById('gopayParams').textContent = 'parseGoPayReturnParams není dostupná';
+            }
+        }
+        
+        // Test uložení
+        async function testSave() {
+            const resultEl = document.getElementById('testResult');
+            resultEl.textContent = 'Testuji...';
+            
+            try {
+                // Počkat na Firebase
+                await new Promise((resolve) => {
+                    if (window.firebaseAuth && window.firebaseDb) {
+                        resolve();
+                    } else {
+                        const checkInterval = setInterval(() => {
+                            if (window.firebaseAuth && window.firebaseDb) {
+                                clearInterval(checkInterval);
+                                resolve();
+                            }
+                        }, 100);
+                    }
+                });
+                
+                const user = window.firebaseAuth.currentUser;
+                if (!user) {
+                    resultEl.textContent = '❌ Uživatel není přihlášen';
+                    return;
+                }
+                
+                // Zkusit uložit testovací platbu
+                const testPayment = {
+                    orderNumber: 'test-' + Date.now(),
+                    idPaymentSession: 'test-123',
+                    state: 'PAID',
+                    totalPrice: '3900',
+                    currency: 'CZK',
+                    productName: 'test balicek',
+                    orderNumber: 'hobby'
+                };
+                
+                const orderNumber = await window.savePaymentToFirestore(testPayment);
+                resultEl.textContent = '✅ Test úspěšný! OrderNumber: ' + orderNumber;
+                
+            } catch (error) {
+                resultEl.textContent = '❌ Chyba: ' + error.message + '\n' + error.stack;
+            }
+        }
+        
+        // Spustit kontrolu po načtení
+        document.addEventListener('DOMContentLoaded', function() {
+            // Počkat na načtení skriptů
+            setTimeout(checkAll, 1000);
+            setInterval(checkAll, 2000); // Aktualizovat každé 2 sekundy
+        });
+    </script>
+</body>
+</html>
+
