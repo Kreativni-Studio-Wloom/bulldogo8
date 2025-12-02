@@ -112,18 +112,56 @@
                 if (gopayParams && (gopayParams.idPaymentSession || gopayParams.paymentSessionId || gopayParams.orderNumber)) {
                     console.log('✅ GoPay parametry nalezeny:', gopayParams);
                     
-                    // Pokud není state, ale je orderNumber, pravděpodobně je to úspěšná platba
-                    if (!gopayParams.state && gopayParams.orderNumber) {
-                        gopayParams.state = 'PAID';
-                        console.log('ℹ️ Nastavuji state na PAID (není v URL parametrech)');
+                    // DŮLEŽITÉ: Pokud jsme na success stránce, state MUSÍ být PAID
+                    // GoPay může vracet CANCELED i při úspěšné platbě (kvůli různým důvodům)
+                    // Ale pokud jsme na success stránce, znamená to, že platba byla úspěšná
+                    const originalState = gopayParams.state;
+                    gopayParams.state = 'PAID';
+                    if (originalState && originalState !== 'PAID') {
+                        console.log('⚠️ GoPay vrátil state:', originalState, 'ale jsme na success stránce, nastavuji na PAID');
                     }
+                    
+                    // Pokud chybí částka nebo produkt, zkusit získat z konfigurace podle orderNumber
+                    if (gopayParams.orderNumber) {
+                        const paymentType = window.getPaymentTypeFromOrderNumber(gopayParams.orderNumber);
+                        if (paymentType) {
+                            const config = window.getPaymentConfig(paymentType.type, paymentType.id);
+                            if (config) {
+                                if (!gopayParams.totalPrice) {
+                                    gopayParams.totalPrice = config.amountInHellers.toString();
+                                    console.log('ℹ️ Částka získána z konfigurace:', config.amount, 'Kč');
+                                }
+                                if (!gopayParams.productName) {
+                                    gopayParams.productName = config.productName;
+                                    console.log('ℹ️ Produkt získána z konfigurace:', config.productName);
+                                }
+                            }
+                        }
+                    }
+                    
                     
                     // Zobrazit informace o platbě
                     const paymentId = gopayParams.idPaymentSession || gopayParams.paymentSessionId || 'N/A';
-                    const amount = gopayParams.totalPrice ? (parseInt(gopayParams.totalPrice) / 100).toFixed(2) : 'N/A';
+                    // Pokud je totalPrice v haléřích, převést na Kč
+                    let amount = 'N/A';
+                    if (gopayParams.totalPrice) {
+                        const totalPriceNum = parseInt(gopayParams.totalPrice);
+                        // Pokud je číslo větší než 100, pravděpodobně je to v haléřích
+                        amount = totalPriceNum > 100 ? (totalPriceNum / 100).toFixed(2) : totalPriceNum.toFixed(2);
+                    } else {
+                        // Zkusit získat z konfigurace
+                        const paymentType = window.getPaymentTypeFromOrderNumber(gopayParams.orderNumber);
+                        if (paymentType) {
+                            const config = window.getPaymentConfig(paymentType.type, paymentType.id);
+                            if (config) {
+                                amount = config.amount.toFixed(2);
+                            }
+                        }
+                    }
+                    
                     paymentDetails.style.display = 'block';
                     paymentInfo.innerHTML = `
-                        <strong>ID platby:</strong> ${paymentId}<br>
+                        ${paymentId !== 'N/A' ? `<strong>ID platby:</strong> ${paymentId}<br>` : ''}
                         <strong>Stav:</strong> ${gopayParams.state || 'PAID'}<br>
                         <strong>Částka:</strong> ${amount} ${gopayParams.currency || 'CZK'}<br>
                         <strong>Objednávka:</strong> ${gopayParams.orderNumber || 'N/A'}<br>

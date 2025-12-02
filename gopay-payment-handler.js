@@ -14,10 +14,24 @@ function parseGoPayReturnParams() {
     // Může být idPaymentSession nebo paymentSessionId (podle verze GoPay)
     const paymentSessionId = urlParams.get('idPaymentSession') || urlParams.get('paymentSessionId');
     
+    // GoPay při úspěšné platbě může vracet různé parametry
+    // Pokud jsme na success stránce a není state, pravděpodobně je to úspěšná platba
+    const isSuccessPage = window.location.pathname.includes('success');
+    const isFailedPage = window.location.pathname.includes('failed');
+    
+    let defaultState = null;
+    if (isSuccessPage && !urlParams.get('state')) {
+        // Na success stránce bez state = pravděpodobně úspěšná platba
+        defaultState = 'PAID';
+    } else if (isFailedPage && !urlParams.get('state')) {
+        // Na failed stránce bez state = pravděpodobně zrušená platba
+        defaultState = 'CANCELED';
+    }
+    
     const params = {
         idPaymentSession: paymentSessionId,
         paymentSessionId: paymentSessionId, // Duplicitní pro kompatibilitu
-        state: urlParams.get('state') || (urlParams.get('paymentSessionId') ? 'CANCELED' : null), // Pokud je paymentSessionId ale není state, pravděpodobně zrušená
+        state: urlParams.get('state') || defaultState,
         totalPrice: urlParams.get('totalPrice'),
         currency: urlParams.get('currency'),
         orderNumber: urlParams.get('orderNumber'),
@@ -71,16 +85,43 @@ async function savePaymentToFirestore(paymentInfo) {
         // Uložit záznam o platbě
         const orderNumber = paymentInfo.orderNumber || `ORDER-${Date.now()}`;
         const gopayId = paymentInfo.idPaymentSession || paymentInfo.paymentSessionId || null;
-        const state = paymentInfo.state || 'PAID'; // Pokud není state, předpokládáme PAID (úspěšná platba)
+        // Pokud jsme na success stránce, state musí být PAID (i když GoPay vrací jiný)
+        // Pokud není state, předpokládáme PAID (úspěšná platba)
+        let state = paymentInfo.state || 'PAID';
+        if (window.location.pathname.includes('success') && state !== 'PAID') {
+            state = 'PAID';
+            console.log('⚠️ Opravuji state na PAID (jsme na success stránce, GoPay vrátil:', paymentInfo.state, ')');
+        }
+        
+        // Pokud chybí částka nebo produkt, zkusit získat z konfigurace
+        let amount = paymentInfo.totalPrice ? parseInt(paymentInfo.totalPrice) / 100 : 0;
+        let productName = paymentInfo.productName || '';
+        
+        if (!amount || !productName) {
+            const paymentType = window.getPaymentTypeFromOrderNumber(orderNumber);
+            if (paymentType) {
+                const config = window.getPaymentConfig(paymentType.type, paymentType.id);
+                if (config) {
+                    if (!amount) {
+                        amount = config.amount;
+                        console.log('ℹ️ Částka získána z konfigurace:', amount, 'Kč');
+                    }
+                    if (!productName) {
+                        productName = config.productName;
+                        console.log('ℹ️ Produkt získána z konfigurace:', productName);
+                    }
+                }
+            }
+        }
         
         const paymentData = {
             gopayId: gopayId,
             orderNumber: orderNumber,
             userId: user.uid,
             state: state,
-            amount: paymentInfo.totalPrice ? parseInt(paymentInfo.totalPrice) / 100 : 0, // převod z haléřů
+            amount: amount,
             currency: paymentInfo.currency || 'CZK',
-            productName: paymentInfo.productName || '',
+            productName: productName,
             paymentMethod: paymentInfo.paymentMethod || null,
             payer: paymentInfo.payer || null,
             createdAt: now,
