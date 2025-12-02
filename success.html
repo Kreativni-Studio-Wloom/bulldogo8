@@ -62,8 +62,8 @@
     </style>
     <!-- Firebase SDK -->
     <script type="module" src="firebase-init.js"></script>
-    <script src="gopay-config.js" defer></script>
-    <script src="gopay-payment-handler.js" defer></script>
+    <script src="gopay-config.js"></script>
+    <script src="gopay-payment-handler.js"></script>
 </head>
 <body>
     <div class="success-container">
@@ -156,6 +156,28 @@
                     }
                 });
             });
+            
+            // Zkontrolovat, zda jsou funkce dostupné
+            if (typeof window.parseGoPayReturnParams !== 'function') {
+                console.error('❌ parseGoPayReturnParams není dostupná, čekám na načtení gopay-payment-handler.js...');
+                // Počkat na načtení skriptu
+                await new Promise((resolve) => {
+                    const checkInterval = setInterval(() => {
+                        if (typeof window.parseGoPayReturnParams === 'function') {
+                            clearInterval(checkInterval);
+                            console.log('✅ gopay-payment-handler.js načten');
+                            resolve();
+                        }
+                    }, 100);
+                    
+                    // Timeout po 5 sekundách
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        console.error('❌ gopay-payment-handler.js se nenačetl do 5 sekund');
+                        resolve();
+                    }, 5000);
+                });
+            }
             
             try {
                 // 1. Zpracovat URL parametry z GoPay

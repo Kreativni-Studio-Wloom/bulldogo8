@@ -303,7 +303,7 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
                 
                 // Ověřit, že se to skutečně uložilo
                 const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-                const userId = user.uid || user.userId;
+                // userId už je definován výše, použít existující
                 const savedDoc = await getDoc(doc(window.firebaseDb, 'users', userId, 'profile', 'profile'));
                 if (savedDoc.exists()) {
                     const savedData = savedDoc.data();
@@ -354,9 +354,12 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
     }
 }
 
-// Export pro globální použití
-window.parseGoPayReturnParams = parseGoPayReturnParams;
-window.savePaymentToFirestore = savePaymentToFirestore;
-window.getPaymentTypeFromOrderNumber = getPaymentTypeFromOrderNumber;
-window.activatePlanFromPayment = activatePlanFromPayment;
+// Export pro globální použití - musí být na konci souboru
+if (typeof window !== 'undefined') {
+    window.parseGoPayReturnParams = parseGoPayReturnParams;
+    window.savePaymentToFirestore = savePaymentToFirestore;
+    window.getPaymentTypeFromOrderNumber = getPaymentTypeFromOrderNumber;
+    window.activatePlanFromPayment = activatePlanFromPayment;
+    console.log('✅ GoPay payment handler funkce exportovány na window');
+}
 
