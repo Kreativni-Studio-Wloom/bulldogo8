@@ -73,10 +73,30 @@ async function savePaymentToFirestore(paymentInfo) {
             }
         });
         
-        const user = window.firebaseAuth.currentUser;
+        // Zkusit získat uživatele z Firebase Auth nebo sessionStorage
+        let user = window.firebaseAuth?.currentUser;
+        
+        if (!user) {
+            console.warn('⚠️ currentUser není dostupný, zkouším sessionStorage...');
+            const userData = sessionStorage.getItem('firebase_user');
+            if (userData) {
+                try {
+                    const userInfo = JSON.parse(userData);
+                    console.log('ℹ️ Uživatel získána z sessionStorage:', userInfo.uid);
+                    // Vytvořit mock user objekt
+                    user = {
+                        uid: userInfo.uid,
+                        email: userInfo.email
+                    };
+                } catch (e) {
+                    console.error('❌ Nelze parsovat user data z sessionStorage:', e);
+                }
+            }
+        }
+        
         if (!user || !window.firebaseDb) {
-            console.log('⚠️ Uživatel není přihlášen nebo Firebase není dostupný');
-            return;
+            console.error('❌ Uživatel není přihlášen nebo Firebase není dostupný');
+            throw new Error('Uživatel není přihlášen nebo Firebase není dostupný');
         }
         
         const { setDoc, doc, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
@@ -114,10 +134,12 @@ async function savePaymentToFirestore(paymentInfo) {
             }
         }
         
+        const userId = user.uid || user.userId;
+        
         const paymentData = {
             gopayId: gopayId,
             orderNumber: orderNumber,
-            userId: user.uid,
+            userId: userId,
             state: state,
             amount: amount,
             currency: paymentInfo.currency || 'CZK',
@@ -201,10 +223,32 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
             }
         });
         
-        const user = window.firebaseAuth.currentUser;
+        // Zkusit získat uživatele z Firebase Auth nebo sessionStorage
+        let user = window.firebaseAuth?.currentUser;
+        
+        if (!user) {
+            console.warn('⚠️ currentUser není dostupný, zkouším sessionStorage...');
+            const userData = sessionStorage.getItem('firebase_user');
+            if (userData) {
+                try {
+                    const userInfo = JSON.parse(userData);
+                    console.log('ℹ️ Uživatel získána z sessionStorage:', userInfo.uid);
+                    // Vytvořit mock user objekt pro použití v kódu
+                    user = {
+                        uid: userInfo.uid,
+                        email: userInfo.email
+                    };
+                } catch (e) {
+                    console.error('❌ Nelze parsovat user data z sessionStorage:', e);
+                }
+            }
+        }
+        
         if (!user || !window.firebaseDb) {
-            console.log('⚠️ Uživatel není přihlášen nebo Firebase není dostupný');
-            return;
+            console.error('❌ Uživatel není přihlášen nebo Firebase není dostupný');
+            console.error('❌ Firebase Auth:', window.firebaseAuth);
+            console.error('❌ Firebase Db:', window.firebaseDb);
+            throw new Error('Uživatel není přihlášen nebo Firebase není dostupný');
         }
         
         const { setDoc, doc, Timestamp } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
@@ -223,7 +267,8 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
             const periodEnd = new Date(now.toDate());
             periodEnd.setDate(periodEnd.getDate() + durationDays);
             
-            const profilePath = `users/${user.uid}/profile/profile`;
+            const userId = user.uid || user.userId;
+            const profilePath = `users/${userId}/profile/profile`;
             const planData = {
                 plan: paymentType.id,
                 planName: config.productName,
@@ -241,8 +286,14 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
             console.log('   User Email:', user.email);
             
             try {
+                // Použít uid z user objektu (může být z currentUser nebo sessionStorage)
+                const userId = user.uid || user.userId;
+                if (!userId) {
+                    throw new Error('Chybí userId');
+                }
+                
                 await setDoc(
-                    doc(window.firebaseDb, 'users', user.uid, 'profile', 'profile'),
+                    doc(window.firebaseDb, 'users', userId, 'profile', 'profile'),
                     planData,
                     { merge: true }
                 );
@@ -252,7 +303,8 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
                 
                 // Ověřit, že se to skutečně uložilo
                 const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-                const savedDoc = await getDoc(doc(window.firebaseDb, 'users', user.uid, 'profile', 'profile'));
+                const userId = user.uid || user.userId;
+                const savedDoc = await getDoc(doc(window.firebaseDb, 'users', userId, 'profile', 'profile'));
                 if (savedDoc.exists()) {
                     const savedData = savedDoc.data();
                     console.log('✅ Ověření - plán v databázi:', savedData.plan);

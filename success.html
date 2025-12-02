@@ -101,6 +101,62 @@
             const paymentDetails = document.getElementById('paymentDetails');
             const paymentInfo = document.getElementById('paymentInfo');
             
+            // DŮLEŽITÉ: Počkat na načtení Firebase a obnovení Auth session
+            console.log('⏳ Čekám na Firebase inicializaci...');
+            
+            // Počkat na Firebase
+            await new Promise((resolve) => {
+                if (window.firebaseAuth && window.firebaseDb) {
+                    console.log('✅ Firebase již načten');
+                    resolve();
+                } else {
+                    // Počkat na načtení Firebase
+                    const checkInterval = setInterval(() => {
+                        if (window.firebaseAuth && window.firebaseDb) {
+                            clearInterval(checkInterval);
+                            console.log('✅ Firebase načten');
+                            resolve();
+                        }
+                    }, 100);
+                    
+                    // Timeout po 10 sekundách
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        console.warn('⚠️ Firebase se nenačetl do 10 sekund');
+                        resolve();
+                    }, 10000);
+                }
+            });
+            
+            // Počkat na obnovení Auth session
+            console.log('⏳ Čekám na obnovení Auth session...');
+            const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+            
+            await new Promise((resolve) => {
+                // Zkontrolovat, zda už je uživatel přihlášen
+                if (window.firebaseAuth.currentUser) {
+                    console.log('✅ Uživatel již přihlášen:', window.firebaseAuth.currentUser.uid);
+                    resolve();
+                    return;
+                }
+                
+                // Počkat na Auth state change
+                const unsubscribe = onAuthStateChanged(window.firebaseAuth, (user) => {
+                    if (user) {
+                        console.log('✅ Auth session obnovena:', user.uid);
+                        unsubscribe();
+                        resolve();
+                    } else {
+                        // Počkat maximálně 5 sekund
+                        setTimeout(() => {
+                            console.warn('⚠️ Uživatel není přihlášen po 5 sekundách');
+                            unsubscribe();
+                            resolve();
+                        }, 5000);
+                    }
+                });
+            });
+            
             try {
                 // 1. Zpracovat URL parametry z GoPay
                 const gopayParams = window.parseGoPayReturnParams();
@@ -208,13 +264,46 @@
                                 console.log('🎯 Payment info:', gopayParams);
                                 
                                 // Zkontrolovat, zda je uživatel přihlášen
-                                if (!window.firebaseAuth || !window.firebaseAuth.currentUser) {
-                                    console.error('❌ Uživatel není přihlášen! Nelze aktivovat plán.');
-                                    alert('Chyba: Nejste přihlášeni. Prosím přihlaste se a zkuste to znovu.');
+                                if (!window.firebaseAuth) {
+                                    console.error('❌ Firebase Auth není dostupný!');
+                                    alert('Chyba: Firebase není načten. Obnovte prosím stránku.');
                                     return;
                                 }
                                 
-                                console.log('✅ Uživatel je přihlášen:', window.firebaseAuth.currentUser.uid);
+                                // Zkusit získat uživatele z sessionStorage jako fallback
+                                let currentUser = window.firebaseAuth.currentUser;
+                                if (!currentUser) {
+                                    console.warn('⚠️ currentUser není dostupný, zkouším sessionStorage...');
+                                    const userData = sessionStorage.getItem('firebase_user');
+                                    if (userData) {
+                                        try {
+                                            const user = JSON.parse(userData);
+                                            console.log('ℹ️ Uživatel získána z sessionStorage:', user.uid);
+                                            // Použít userId z sessionStorage
+                                            currentUser = { uid: user.uid, email: user.email };
+                                        } catch (e) {
+                                            console.error('❌ Nelze parsovat user data z sessionStorage:', e);
+                                        }
+                                    }
+                                }
+                                
+                                if (!currentUser) {
+                                    console.error('❌ Uživatel není přihlášen! Nelze aktivovat plán.');
+                                    console.error('❌ Firebase Auth:', window.firebaseAuth);
+                                    console.error('❌ currentUser:', window.firebaseAuth.currentUser);
+                                    
+                                    const errorMsg = document.createElement('div');
+                                    errorMsg.style.cssText = 'background: #dc3545; color: white; padding: 15px; margin: 10px 0; border-radius: 5px;';
+                                    errorMsg.innerHTML = `
+                                        <strong>⚠️ Chyba: Nejste přihlášeni</strong><br>
+                                        Po návratu z GoPay se vaše přihlášení neobnovilo.<br>
+                                        <a href="packages.html" style="color: white; text-decoration: underline;">Klikněte zde pro opětovné přihlášení</a>
+                                    `;
+                                    document.querySelector('.success-container').appendChild(errorMsg);
+                                    return;
+                                }
+                                
+                                console.log('✅ Uživatel je přihlášen:', currentUser.uid);
                                 
                                 await window.activatePlanFromPayment(gopayParams, paymentType);
                                 console.log('✅ Plán aktivován:', paymentType);

@@ -138,13 +138,32 @@ async function processPayment() {
         
         // Uložit informace o platbě do sessionStorage pro pozdější zpracování
         const paymentConfig = window.getPaymentConfig('package', planId);
+        
+        // DŮLEŽITÉ: Uložit také informace o uživateli, protože Auth session se může neobnovit po návratu z GoPay
+        let userInfo = null;
+        if (window.firebaseAuth && window.firebaseAuth.currentUser) {
+            userInfo = {
+                uid: window.firebaseAuth.currentUser.uid,
+                email: window.firebaseAuth.currentUser.email
+            };
+        }
+        
         sessionStorage.setItem('gopay_payment', JSON.stringify({
             type: 'package',
             id: planId,
             orderNumber: paymentConfig.orderNumber,
             amount: paymentConfig.amount,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            userId: userInfo?.uid || null,
+            userEmail: userInfo?.email || null
         }));
+        
+        // Uložit také samostatně pro snadný přístup
+        if (userInfo) {
+            sessionStorage.setItem('firebase_user', JSON.stringify(userInfo));
+        }
+        
+        console.log('💾 Uloženo do sessionStorage:', { payment: planId, user: userInfo });
         
         // Přesměrovat na GoPay platební bránu
         window.location.href = paymentUrl;
