@@ -223,21 +223,50 @@ async function activatePlanFromPayment(paymentInfo, paymentType) {
             const periodEnd = new Date(now.toDate());
             periodEnd.setDate(periodEnd.getDate() + durationDays);
             
-            await setDoc(
-                doc(window.firebaseDb, 'users', user.uid, 'profile', 'profile'),
-                {
-                    plan: paymentType.id,
-                    planName: config.productName,
-                    planUpdatedAt: now,
-                    planPeriodStart: now,
-                    planPeriodEnd: Timestamp.fromDate(periodEnd),
-                    planDurationDays: durationDays,
-                    planCancelAt: null,
-                },
-                { merge: true }
-            );
+            const profilePath = `users/${user.uid}/profile/profile`;
+            const planData = {
+                plan: paymentType.id,
+                planName: config.productName,
+                planUpdatedAt: now,
+                planPeriodStart: now,
+                planPeriodEnd: Timestamp.fromDate(periodEnd),
+                planDurationDays: durationDays,
+                planCancelAt: null,
+            };
             
-            console.log('✅ Balíček aktivován:', paymentType.id);
+            console.log('💾 Ukládám plán do Firestore:');
+            console.log('   Cesta:', profilePath);
+            console.log('   Data:', planData);
+            console.log('   User UID:', user.uid);
+            console.log('   User Email:', user.email);
+            
+            try {
+                await setDoc(
+                    doc(window.firebaseDb, 'users', user.uid, 'profile', 'profile'),
+                    planData,
+                    { merge: true }
+                );
+                
+                console.log('✅ Balíček aktivován:', paymentType.id);
+                console.log('✅ Plán uložen do:', profilePath);
+                
+                // Ověřit, že se to skutečně uložilo
+                const { getDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+                const savedDoc = await getDoc(doc(window.firebaseDb, 'users', user.uid, 'profile', 'profile'));
+                if (savedDoc.exists()) {
+                    const savedData = savedDoc.data();
+                    console.log('✅ Ověření - plán v databázi:', savedData.plan);
+                    console.log('✅ Ověření - celá data:', savedData);
+                } else {
+                    console.error('❌ Dokument neexistuje po uložení!');
+                }
+            } catch (error) {
+                console.error('❌ Chyba při ukládání plánu:', error);
+                console.error('❌ Error code:', error.code);
+                console.error('❌ Error message:', error.message);
+                console.error('❌ Error stack:', error.stack);
+                throw error; // Znovu vyhodit, aby to bylo vidět v success.html
+            }
             
         } else if (paymentType.type === 'topAd') {
             // Topování - potřebujeme adId ze sessionStorage

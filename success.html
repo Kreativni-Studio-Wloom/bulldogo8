@@ -205,14 +205,44 @@
                         if (paymentType) {
                             try {
                                 console.log('🎯 Aktivuji plán...', paymentType);
+                                console.log('🎯 Payment info:', gopayParams);
+                                
+                                // Zkontrolovat, zda je uživatel přihlášen
+                                if (!window.firebaseAuth || !window.firebaseAuth.currentUser) {
+                                    console.error('❌ Uživatel není přihlášen! Nelze aktivovat plán.');
+                                    alert('Chyba: Nejste přihlášeni. Prosím přihlaste se a zkuste to znovu.');
+                                    return;
+                                }
+                                
+                                console.log('✅ Uživatel je přihlášen:', window.firebaseAuth.currentUser.uid);
+                                
                                 await window.activatePlanFromPayment(gopayParams, paymentType);
                                 console.log('✅ Plán aktivován:', paymentType);
+                                
+                                // Zobrazit úspěšnou zprávu
+                                const successMsg = document.createElement('div');
+                                successMsg.style.cssText = 'background: #28a745; color: white; padding: 10px; margin: 10px 0; border-radius: 5px;';
+                                successMsg.innerHTML = '✅ Váš balíček byl úspěšně aktivován!';
+                                document.querySelector('.success-container').appendChild(successMsg);
+                                
                             } catch (error) {
                                 console.error('❌ Chyba při aktivaci plánu:', error);
-                                console.error('❌ Error details:', error.message, error.stack);
+                                console.error('❌ Error code:', error.code);
+                                console.error('❌ Error message:', error.message);
+                                console.error('❌ Error stack:', error.stack);
+                                
+                                // Zobrazit chybovou zprávu
+                                const errorMsg = document.createElement('div');
+                                errorMsg.style.cssText = 'background: #dc3545; color: white; padding: 10px; margin: 10px 0; border-radius: 5px;';
+                                errorMsg.innerHTML = '⚠️ Chyba při aktivaci plánu: ' + error.message + '. Kontaktujte prosím podporu.';
+                                document.querySelector('.success-container').appendChild(errorMsg);
                             }
                         } else {
                             console.warn('⚠️ Nelze najít payment type pro orderNumber:', orderNumber);
+                            const errorMsg = document.createElement('div');
+                            errorMsg.style.cssText = 'background: #ffc107; color: #333; padding: 10px; margin: 10px 0; border-radius: 5px;';
+                            errorMsg.innerHTML = '⚠️ Nelze najít typ platby. Kontaktujte prosím podporu.';
+                            document.querySelector('.success-container').appendChild(errorMsg);
                         }
                     } else {
                         console.warn('⚠️ Chybí orderNumber - nelze uložit ani aktivovat plán. Zkontrolujte URL parametry nebo sessionStorage.');
