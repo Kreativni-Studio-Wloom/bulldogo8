@@ -25,7 +25,7 @@ const GOPAY_CONFIG = {
       orderNumber: "hobby",
       duration: 1, // měsíc
       description: "První měsíc zdarma a poté se účtuje 39 kč měsíčně",
-      encryptedSignature: "15aee2e0cd307a58c5ceedadc900b16c0ab2b1df47759b660f049f2caabc10e0fb9a5c4a55d49318341f58f210b5cf53"
+      encryptedSignature: "63e93a5e0066f2307418ff108f61516b275ece4346d76c7ddbe2b478e0a0e9e91ecb0519e2c4c1f9341f58f210b5cf53"
     },
     business: {
       amount: 199, // Kč
@@ -35,7 +35,7 @@ const GOPAY_CONFIG = {
       orderNumber: "firma",
       duration: 1, // měsíc
       description: "Měsíční předplatné",
-      encryptedSignature: "8fd4069f6455cc8875297611ce9aeffb28df35e65e3bd8b771612a4cee1b148221ccd9b2bbf8fae5341f58f210b5cf53"
+      encryptedSignature: "ca2ed9385e44b3928697af6bcb9af243acbd6b591c0fd0d009bfddf0dd2e433a46e3596e24af0825341f58f210b5cf53"
     }
   },
   
@@ -75,8 +75,8 @@ const GOPAY_CONFIG = {
   
   // URL pro návrat z platby
   returnUrls: {
-    success: "https://bulldogo.cz/success",
-    failed: "https://bulldogo.cz/failed"
+    success: "https://bulldogo8.vercel.app/success",
+    failed: "https://bulldogo8.vercel.app/failed"
   }
 };
 
