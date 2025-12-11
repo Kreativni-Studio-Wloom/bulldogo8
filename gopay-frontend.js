@@ -181,7 +181,7 @@ async function createGoPayPayment(paymentData) {
           } else if (errorData.details.fullError) {
             // Zkusit extrahovat z fullError
             if (errorData.details.fullError.errors && Array.isArray(errorData.details.fullError.errors)) {
-              errorMessages = errorData.details.fullError.errors.map((err: any) => {
+              errorMessages = errorData.details.fullError.errors.map((err) => {
                 if (typeof err === 'string') return err;
                 if (err.error_name) return `${err.error_name}: ${err.description || err.message || 'Wrong value'}`;
                 if (err.message) return err.message;
