@@ -297,30 +297,44 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
         console.log("Opakované platby jsou vypnuté (isRecurring: false)");
       }
 
-      // Logování dat před odesláním (bez citlivých údajů)
-      console.log("Odesílám platbu do GoPay:", {
-        amount: paymentData.amount,
-        currency: paymentData.currency,
-        order_number: paymentData.order_number,
-        order_description: paymentData.order_description,
-        items: paymentData.items,
-        hasRecurrence: !!paymentData.recurrence,
-        recurrence: paymentData.recurrence,
-        return_url: paymentData.return_url,
-        notification_url: paymentData.notification_url,
-        target: paymentData.target,
-      });
-      
       // Validace, že součet items odpovídá celkové částce
       const itemsSum = paymentData.items.reduce((sum, item) => sum + (item.amount * item.count), 0);
       if (Math.abs(itemsSum - paymentData.amount) > 1) {
         console.warn(`⚠️ Součet items (${itemsSum}) se nerovná celkové částce (${paymentData.amount})`);
       }
+      
+      // Odebrat prázdné/null hodnoty z paymentData před odesláním
+      const cleanPaymentData: any = {
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        order_number: paymentData.order_number,
+        order_description: paymentData.order_description,
+        items: paymentData.items,
+        payer: {
+          allowed_payment_instruments: paymentData.payer.allowed_payment_instruments,
+          default_payment_instrument: paymentData.payer.default_payment_instrument,
+          contact: Object.fromEntries(
+            Object.entries(paymentData.payer.contact || {}).filter(([_, v]) => v != null && v !== "")
+          ),
+        },
+        target: paymentData.target,
+        return_url: paymentData.return_url,
+        notification_url: paymentData.notification_url,
+        lang: paymentData.lang,
+      };
+      
+      // Přidat recurrence pouze pokud existuje
+      if (paymentData.recurrence) {
+        cleanPaymentData.recurrence = paymentData.recurrence;
+      }
+      
+      // Logování dat před odesláním (bez citlivých údajů)
+      console.log("Odesílám platbu do GoPay:", JSON.stringify(cleanPaymentData, null, 2));
 
       // Vytvoření platby v GoPay
       const paymentResponse = await axios.post<GoPayPaymentResponse>(
         `${gopayConfig.apiUrl}/payments/payment`,
-        paymentData,
+        cleanPaymentData,
         {
           headers: {
             "Authorization": `Bearer ${accessToken}`,
@@ -398,12 +412,36 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
         
         // Pro validační chyby (409) vrať detailní informace
         if (status === 409) {
+          // Logovat celou chybovou odpověď pro debugging
+          console.error("GoPay 409 Validation Error Details:", JSON.stringify(goPayError, null, 2));
+          
+          // Zkusit extrahovat konkrétní chyby
+          const errorMessages = [];
+          if (goPayError?.errors && Array.isArray(goPayError.errors)) {
+            goPayError.errors.forEach((err: any) => {
+              if (typeof err === 'string') {
+                errorMessages.push(err);
+              } else if (err.message) {
+                errorMessages.push(err.message);
+              } else if (err.error_name) {
+                errorMessages.push(`${err.error_name}: ${err.description || err.message || 'Wrong value'}`);
+              } else {
+                errorMessages.push(JSON.stringify(err));
+              }
+            });
+          } else if (goPayError?.error) {
+            errorMessages.push(goPayError.error);
+          } else if (goPayError?.message) {
+            errorMessages.push(goPayError.message);
+          }
+          
           res.status(409).json({
             error: "GoPay validation error",
-            message: goPayError?.errors?.[0]?.message || goPayError?.message || "Validační chyba",
+            message: errorMessages.length > 0 ? errorMessages.join(', ') : "Validační chyba GoPay",
             details: {
               errors: goPayError?.errors || goPayError?.error || goPayError,
               message: goPayError?.message,
+              fullError: goPayError,
             },
           });
           return;
