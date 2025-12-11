@@ -24,7 +24,7 @@ const getFunctionsUrl = () => {
   // Po nasazení Functions (firebase deploy --only functions) se zobrazí URL
   // Zkopírujte region z URL a nastavte ho zde
   // Nebo zkontrolujte Firebase Console → Functions → URL funkcí
-  const region = "europe-west1"; // ⚠️ ZMĚŇTE pokud Functions běží na jiném regionu!
+  const region = "us-central1"; // ✅ Opraveno: Functions jsou nasazeny na us-central1
   
   // Možné regiony: europe-west1, us-central1, asia-east1, atd.
   // Zkontrolujte v Firebase Console → Functions → URL

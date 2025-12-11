@@ -461,7 +461,7 @@ async function cancelRecurringPayment() {
 
         // Získat URL Firebase Functions
         const projectId = "inzerio-inzerce";
-        const region = "europe-west1";
+        const region = "us-central1"; // ✅ Opraveno: Functions jsou nasazeny na us-central1
         const functionsUrl = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
             ? `http://localhost:5001/${projectId}/${region}`
             : `https://${region}-${projectId}.cloudfunctions.net`;
