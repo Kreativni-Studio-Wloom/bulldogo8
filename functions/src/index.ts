@@ -27,29 +27,49 @@ async function getGoPayAccessToken(scope = "payment-create"): Promise<string> {
   const gopayConfig = getGoPayConfig();
   
   if (!gopayConfig.clientId || !gopayConfig.clientSecret) {
-    throw new Error("GoPay credentials not configured. Please set gopay.client_id and gopay.client_secret");
+    console.error("GoPay config:", {
+      clientId: gopayConfig.clientId ? "***" : "MISSING",
+      clientSecret: gopayConfig.clientSecret ? "***" : "MISSING",
+      apiUrl: gopayConfig.apiUrl,
+      isTest: gopayConfig.isTest,
+    });
+    throw new Error("GoPay credentials not configured. Please set gopay.test_client_id and gopay.test_client_secret");
   }
 
   try {
+    // GoPay očekává credentials v Basic Auth hlavičce
+    // Formát: Base64(ClientID:ClientSecret)
+    const credentials = Buffer.from(`${gopayConfig.clientId}:${gopayConfig.clientSecret}`).toString('base64');
+    
     const response = await axios.post(
       `${gopayConfig.apiUrl}/oauth2/token`,
-      null,
+      new URLSearchParams({
+        grant_type: "client_credentials",
+        scope: scope,
+      }),
       {
-        auth: {
-          username: gopayConfig.clientId,
-          password: gopayConfig.clientSecret,
-        },
-        params: {
-          grant_type: "client_credentials",
-          scope: scope,
+        headers: {
+          "Authorization": `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Accept": "application/json",
         },
       }
     );
 
+    if (!response.data || !response.data.access_token) {
+      throw new Error("GoPay API did not return access token");
+    }
+
     return response.data.access_token;
   } catch (error: any) {
-    console.error("GoPay OAuth2 error:", error.response?.data || error.message);
-    throw new Error(`Failed to get GoPay access token: ${error.response?.data?.errors?.[0]?.message || error.message}`);
+    console.error("GoPay OAuth2 error:", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message,
+      url: `${gopayConfig.apiUrl}/oauth2/token`,
+    });
+    throw new Error(`Failed to get GoPay access token: ${error.response?.data?.errors?.[0]?.message || error.response?.data?.message || error.message}`);
   }
 }
 
