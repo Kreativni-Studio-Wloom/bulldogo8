@@ -60,7 +60,14 @@ const FUNCTIONS_BASE_URL = getFunctionsUrl();
  */
 async function createGoPayPayment(paymentData) {
   try {
-    console.log("💳 Vytváření GoPay platby:", paymentData);
+    console.log("💳 Vytváření GoPay platby:", {
+      amount: paymentData.amount,
+      planId: paymentData.planId,
+      planName: paymentData.planName,
+      userId: paymentData.userId,
+      userEmail: paymentData.userEmail,
+      isRecurring: paymentData.isRecurring,
+    });
 
     // Validace vstupních dat
     if (!paymentData.amount || paymentData.amount <= 0) {
@@ -155,21 +162,48 @@ async function createGoPayPayment(paymentData) {
       }
       
       // Pokud je 409 (Conflict), zobrazit validační chyby z GoPay
-      if (response.status === 409 && errorData.details) {
-        const errors = Array.isArray(errorData.details.errors) 
-          ? errorData.details.errors 
-          : errorData.details.error 
-            ? [errorData.details.error] 
-            : [];
+      if (response.status === 409) {
+        console.error("❌ GoPay 409 Error Details:", errorData);
         
-        const errorMessages = errors.map((err) => {
-          if (typeof err === 'string') return err;
-          return err.message || err.error_name || JSON.stringify(err);
-        }).join(', ');
+        // Zkusit extrahovat detailní chyby
+        let errorMessages = [];
         
-        throw new Error(
-          `Validační chyba GoPay: ${errorMessages || errorData.details.message || errorData.message || 'Neznámá chyba'}`
-        );
+        if (errorData.details) {
+          if (errorData.details.errors && Array.isArray(errorData.details.errors)) {
+            errorMessages = errorData.details.errors.map((err) => {
+              if (typeof err === 'string') return err;
+              if (err.error_name) return `${err.error_name}: ${err.description || err.message || 'Wrong value'}`;
+              if (err.message) return err.message;
+              return JSON.stringify(err);
+            });
+          } else if (errorData.details.error) {
+            errorMessages.push(errorData.details.error);
+          } else if (errorData.details.fullError) {
+            // Zkusit extrahovat z fullError
+            if (errorData.details.fullError.errors && Array.isArray(errorData.details.fullError.errors)) {
+              errorMessages = errorData.details.fullError.errors.map((err: any) => {
+                if (typeof err === 'string') return err;
+                if (err.error_name) return `${err.error_name}: ${err.description || err.message || 'Wrong value'}`;
+                if (err.message) return err.message;
+                return JSON.stringify(err);
+              });
+            }
+          }
+        }
+        
+        if (errorMessages.length === 0 && errorData.message) {
+          errorMessages.push(errorData.message);
+        }
+        
+        if (errorMessages.length === 0) {
+          errorMessages.push('Wrong value');
+        }
+        
+        const fullErrorMessage = `Validační chyba GoPay: ${errorMessages.join(', ')}`;
+        console.error("❌ Full error message:", fullErrorMessage);
+        console.error("❌ Full error data:", JSON.stringify(errorData, null, 2));
+        
+        throw new Error(fullErrorMessage);
       }
       
       // Obecná chybová zpráva
