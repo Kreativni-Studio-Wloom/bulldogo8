@@ -75,22 +75,27 @@ async function createGoPayPayment(paymentData) {
       throw new Error("Uživatel není přihlášen");
     }
 
-    // Vytvoření orderNumber - pro Hobby balíček použijeme "hobby", jinak dynamické
-    const orderNumber = paymentData.planId === "hobby" ? "hobby" : `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Vytvoření orderNumber - musí být unikátní pro každou platbu
+    // Pro Hobby balíček použijeme "hobby-" prefix s timestampem pro unikátnost
+    const orderNumber = paymentData.planId === "hobby" 
+      ? `hobby-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      : `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Příprava dat pro backend
+    // POZNÁMKA: amount se posílá v Kč, backend ho převede na haléře
     const requestData = {
-      amount: paymentData.amount,
+      amount: paymentData.amount, // v Kč (např. 39)
       currency: "CZK",
       orderNumber: orderNumber,
       orderDescription: paymentData.planId === "hobby" ? "balíček Hobby" : `Platba za balíček: ${paymentData.planName}`,
       userId: paymentData.userId,
       planId: paymentData.planId,
       planName: paymentData.planName,
+      // Items se posílají s amount v Kč, backend je převede na haléře
       items: [
         {
           name: paymentData.planName,
-          amount: paymentData.amount * 100, // v haléřích
+          amount: paymentData.amount, // v Kč, backend převede na haléře
           count: 1,
         },
       ],

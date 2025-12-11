@@ -207,23 +207,38 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
       const paymentReturnUrl = returnUrl || `${baseUrl}/paymentReturn`;
       const paymentNotificationUrl = `${baseUrl}/gopayNotification`;
 
-      const paymentData: PaymentData = {
-        amount: Math.round(amount * 100), // GoPay používá haléře
-        currency: currency,
-        order_number: orderNumber,
-        order_description: orderDescription,
-        items: items.length > 0 ? items : [
+      // Zpracování items - frontend posílá amount v Kč, převedeme na haléře
+      let processedItems: Array<{name: string, amount: number, count: number}> = items;
+      if (items.length > 0) {
+        // Items z frontendu - amount je v Kč, převedeme na haléře
+        processedItems = items.map((item: any) => ({
+          name: item.name,
+          amount: Math.round(item.amount * 100), // Převod z Kč na haléře
+          count: item.count || 1,
+        }));
+      } else {
+        // Vytvoříme nové items
+        processedItems = [
           {
             name: planName,
             amount: Math.round(amount * 100),
             count: 1,
           },
-        ],
+        ];
+      }
+
+      const paymentData: PaymentData = {
+        amount: Math.round(amount * 100), // GoPay používá haléře
+        currency: currency,
+        order_number: orderNumber,
+        order_description: orderDescription,
+        items: processedItems,
         payer: {
           allowed_payment_instruments: ["PAYMENT_CARD", "BANK_ACCOUNT"],
           default_payment_instrument: "PAYMENT_CARD",
           contact: {
-            ...(payerEmail && { email: payerEmail }),
+            // Email je povinný pro GoPay
+            email: payerEmail || "unknown@example.com",
             ...(payerPhone && { phone_number: payerPhone }),
             ...(payerFirstName && { first_name: payerFirstName }),
             ...(payerLastName && { last_name: payerLastName }),
@@ -264,6 +279,13 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
           dateTo = "2099-12-31";
         }
         
+        // Validace formátu data (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(dateTo)) {
+          console.error(`❌ Neplatný formát data: ${dateTo}, očekává se YYYY-MM-DD`);
+          dateTo = "2099-12-31";
+        }
+        
         paymentData.recurrence = {
           recurrence_cycle: "MONTH",
           recurrence_period: 1, // Každý měsíc
@@ -280,9 +302,20 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
         amount: paymentData.amount,
         currency: paymentData.currency,
         order_number: paymentData.order_number,
+        order_description: paymentData.order_description,
+        items: paymentData.items,
         hasRecurrence: !!paymentData.recurrence,
         recurrence: paymentData.recurrence,
+        return_url: paymentData.return_url,
+        notification_url: paymentData.notification_url,
+        target: paymentData.target,
       });
+      
+      // Validace, že součet items odpovídá celkové částce
+      const itemsSum = paymentData.items.reduce((sum, item) => sum + (item.amount * item.count), 0);
+      if (Math.abs(itemsSum - paymentData.amount) > 1) {
+        console.warn(`⚠️ Součet items (${itemsSum}) se nerovná celkové částce (${paymentData.amount})`);
+      }
 
       // Vytvoření platby v GoPay
       const paymentResponse = await axios.post<GoPayPaymentResponse>(
@@ -768,8 +801,8 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
             }
 
             // Přesměrování na správné URL podle stavu platby
-            // Pro Hobby balíček použijeme specifické URL
-            if (orderNumber === "hobby") {
+            // Pro Hobby balíček použijeme specifické URL (orderNumber začíná "hobby-")
+            if (orderNumber && orderNumber.startsWith("hobby-")) {
               if (goPayPayment.state === "PAID") {
                 res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&paymentId=${paymentId}`);
               } else {
@@ -789,9 +822,9 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
       }
 
       // Fallback přesměrování - pokud není paymentId, použijeme state z URL parametrů
-      // Pro Hobby balíček použijeme specifické URL
+      // Pro Hobby balíček použijeme specifické URL (orderNumber začíná "hobby-")
       const orderNumber = req.query.orderNumber as string;
-      if (orderNumber === "hobby") {
+      if (orderNumber && orderNumber.startsWith("hobby-")) {
         if (state === "PAID") {
           res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&state=${state}`);
         } else {
@@ -805,7 +838,7 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
       console.error("Payment return error:", error);
       // Při chybě přesměrujeme na failed URL
       const orderNumber = req.query.orderNumber as string;
-      if (orderNumber === "hobby") {
+      if (orderNumber && orderNumber.startsWith("hobby-")) {
         res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&error=true`);
       } else {
         const frontendUrl = functions.config().frontend?.url || "https://bulldogo.cz";
