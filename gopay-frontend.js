@@ -413,17 +413,11 @@ function initGoPayIntegration() {
   // Zpracování návratu z GoPay (kontrola URL parametrů)
   handleGoPayReturn();
 
-  // Pokud existuje globální funkce processPayment, přepíšeme ji
-  if (typeof window.processPayment === "function") {
-    const originalProcessPayment = window.processPayment;
-    window.processPayment = async function() {
-      // Zavolá novou GoPay verzi
-      return await processGoPayPayment();
-    };
-  } else {
-    // Vytvořit globální funkci
-    window.processGoPayPayment = processGoPayPayment;
-  }
+  // Exportovat funkci pro použití v packages.js
+  window.processGoPayPayment = processGoPayPayment;
+  
+  // Pokud existuje globální funkce processPayment, necháme ji, ale přidáme fallback
+  // packages.js bude volat processGoPayPayment přímo
 }
 
 /**

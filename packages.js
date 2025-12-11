@@ -144,7 +144,14 @@ async function processPayment() {
         return;
     }
     
-    // Zkontrolovat, zda je GoPay konfigurace načtena
+    // Použít novou funkci z gopay-frontend.js, pokud je dostupná (REST API)
+    if (typeof window.processGoPayPayment === 'function') {
+        console.log('💳 Používám REST API pro vytvoření platby');
+        return await window.processGoPayPayment();
+    }
+    
+    // Fallback na starý způsob (pokud gopay-frontend.js není načten)
+    console.warn('⚠️ gopay-frontend.js není načten, používám starý způsob');
     if (typeof window.createGoPayUrl !== 'function') {
         showMessage("GoPay konfigurace není načtena. Obnovte prosím stránku.", "error");
         return;
@@ -197,7 +204,12 @@ async function processPayment() {
         
     } catch (error) {
         console.error('❌ Chyba při vytváření platební URL:', error);
-        showMessage("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.", "error");
+        const showMsg = window.showMessage || showMessage;
+        if (typeof showMsg === 'function') {
+            showMsg("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.", "error");
+        } else {
+            alert("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.");
+        }
         
         // Obnovit tlačítko
         const payButton = document.querySelector('.payment-actions .btn-primary');
