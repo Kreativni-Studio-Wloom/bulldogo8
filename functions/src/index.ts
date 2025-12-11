@@ -237,11 +237,11 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
           allowed_payment_instruments: ["PAYMENT_CARD", "BANK_ACCOUNT"],
           default_payment_instrument: "PAYMENT_CARD",
           contact: {
-            // Email je povinný pro GoPay
-            email: payerEmail || "unknown@example.com",
-            ...(payerPhone && { phone_number: payerPhone }),
-            ...(payerFirstName && { first_name: payerFirstName }),
-            ...(payerLastName && { last_name: payerLastName }),
+            // Email je povinný pro GoPay - použijeme validní email nebo vyhodíme chybu
+            email: payerEmail || (userId ? `${userId}@bulldogo.cz` : "payment@bulldogo.cz"),
+            ...(payerPhone && payerPhone.trim() !== "" && { phone_number: payerPhone }),
+            ...(payerFirstName && payerFirstName.trim() !== "" && { first_name: payerFirstName }),
+            ...(payerLastName && payerLastName.trim() !== "" && { last_name: payerLastName }),
           },
         },
         target: {
@@ -323,10 +323,11 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
         lang: paymentData.lang,
       };
       
-      // Přidat recurrence pouze pokud existuje
-      if (paymentData.recurrence) {
-        cleanPaymentData.recurrence = paymentData.recurrence;
-      }
+        // Přidat recurrence pouze pokud existuje a isRecurring je true
+        // DŮLEŽITÉ: Ne posílat recurrence objekt vůbec, pokud není aktivní
+        if (isRecurring && paymentData.recurrence) {
+          cleanPaymentData.recurrence = paymentData.recurrence;
+        }
       
       // Logování dat před odesláním (bez citlivých údajů)
       console.log("Odesílám platbu do GoPay:", JSON.stringify(cleanPaymentData, null, 2));
