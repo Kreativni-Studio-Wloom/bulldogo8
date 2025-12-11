@@ -297,6 +297,30 @@ export const createPayment = functions.https.onRequest(async (req, res) => {
 
       const goPayPayment = paymentResponse.data;
 
+      // Logování odpovědi z GoPay (bez citlivých údajů)
+      console.log("GoPay odpověď:", {
+        id: goPayPayment.id,
+        state: goPayPayment.state,
+        hasGwUrl: !!goPayPayment.gw_url,
+        gwUrlLength: goPayPayment.gw_url?.length || 0,
+        order_number: goPayPayment.order_number,
+      });
+
+      // Validace, že GoPay vrátil gw_url
+      if (!goPayPayment.gw_url) {
+        console.error("GoPay nevrátil gw_url:", goPayPayment);
+        res.status(500).json({
+          error: "GoPay nevrátil platební URL",
+          message: "GoPay API nevrátilo gw_url v odpovědi. Zkontrolujte logy.",
+          details: {
+            paymentId: goPayPayment.id,
+            state: goPayPayment.state,
+            response: goPayPayment,
+          },
+        });
+        return;
+      }
+
       // Uložení do Firestore pro sledování
       const paymentRecord = {
         gopayId: goPayPayment.id,

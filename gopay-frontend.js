@@ -168,11 +168,29 @@ async function createGoPayPayment(paymentData) {
 
     const result = await response.json();
 
-    if (!result.success || !result.gwUrl) {
-      throw new Error("Nepodařilo se získat platební URL");
+    if (!result.success) {
+      throw new Error(result.message || result.error || "Nepodařilo se vytvořit platbu");
     }
 
-    console.log("✅ Platba vytvořena:", result);
+    if (!result.gwUrl) {
+      console.error("GoPay nevrátil gwUrl:", result);
+      throw new Error("GoPay nevrátil platební URL. Zkontrolujte logy v Firebase Functions.");
+    }
+
+    // Validace, že URL je správně formátovaná
+    try {
+      new URL(result.gwUrl);
+    } catch (e) {
+      console.error("Neplatná gwUrl:", result.gwUrl);
+      throw new Error(`Neplatná platební URL: ${result.gwUrl}`);
+    }
+
+    console.log("✅ Platba vytvořena:", {
+      paymentId: result.paymentId,
+      orderNumber: result.orderNumber,
+      state: result.state,
+      gwUrl: result.gwUrl.substring(0, 50) + "...", // Zobrazit jen začátek URL
+    });
 
     // Uložení orderNumber do sessionStorage pro pozdější ověření
     sessionStorage.setItem("gopay_orderNumber", result.orderNumber);

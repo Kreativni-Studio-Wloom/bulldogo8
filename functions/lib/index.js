@@ -111,7 +111,7 @@ async function getGoPayAccessToken(scope = "payment-create") {
  */
 exports.createPayment = functions.https.onRequest(async (req, res) => {
     return corsHandler(req, res, async () => {
-        var _a, _b, _c, _d, _e, _f;
+        var _a, _b, _c, _d, _e, _f, _g;
         try {
             // Povolit pouze POST
             if (req.method !== "POST") {
@@ -215,6 +215,28 @@ exports.createPayment = functions.https.onRequest(async (req, res) => {
                 },
             });
             const goPayPayment = paymentResponse.data;
+            // Logování odpovědi z GoPay (bez citlivých údajů)
+            console.log("GoPay odpověď:", {
+                id: goPayPayment.id,
+                state: goPayPayment.state,
+                hasGwUrl: !!goPayPayment.gw_url,
+                gwUrlLength: ((_c = goPayPayment.gw_url) === null || _c === void 0 ? void 0 : _c.length) || 0,
+                order_number: goPayPayment.order_number,
+            });
+            // Validace, že GoPay vrátil gw_url
+            if (!goPayPayment.gw_url) {
+                console.error("GoPay nevrátil gw_url:", goPayPayment);
+                res.status(500).json({
+                    error: "GoPay nevrátil platební URL",
+                    message: "GoPay API nevrátilo gw_url v odpovědi. Zkontrolujte logy.",
+                    details: {
+                        paymentId: goPayPayment.id,
+                        state: goPayPayment.state,
+                        response: goPayPayment,
+                    },
+                });
+                return;
+            }
             // Uložení do Firestore pro sledování
             const paymentRecord = {
                 gopayId: goPayPayment.id,
@@ -255,7 +277,7 @@ exports.createPayment = functions.https.onRequest(async (req, res) => {
                 if (status === 409) {
                     res.status(409).json({
                         error: "GoPay validation error",
-                        message: ((_d = (_c = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _c === void 0 ? void 0 : _c[0]) === null || _d === void 0 ? void 0 : _d.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || "Validační chyba",
+                        message: ((_e = (_d = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || "Validační chyba",
                         details: {
                             errors: (goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.error) || goPayError,
                             message: goPayError === null || goPayError === void 0 ? void 0 : goPayError.message,
@@ -266,7 +288,7 @@ exports.createPayment = functions.https.onRequest(async (req, res) => {
                 // Pro ostatní chyby
                 res.status(status || 500).json({
                     error: "Failed to create payment",
-                    message: ((_f = (_e = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _e === void 0 ? void 0 : _e[0]) === null || _f === void 0 ? void 0 : _f.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || error.message,
+                    message: ((_g = (_f = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _f === void 0 ? void 0 : _f[0]) === null || _g === void 0 ? void 0 : _g.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || error.message,
                     details: goPayError,
                 });
                 return;
