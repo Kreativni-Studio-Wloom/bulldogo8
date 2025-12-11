@@ -69,15 +69,15 @@ async function createGoPayPayment(paymentData) {
       throw new Error("Uživatel není přihlášen");
     }
 
-    // Vytvoření orderNumber (unikátní identifikátor)
-    const orderNumber = `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Vytvoření orderNumber - pro Hobby balíček použijeme "hobby", jinak dynamické
+    const orderNumber = paymentData.planId === "hobby" ? "hobby" : `ORDER-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Příprava dat pro backend
     const requestData = {
       amount: paymentData.amount,
       currency: "CZK",
       orderNumber: orderNumber,
-      orderDescription: `Platba za balíček: ${paymentData.planName}`,
+      orderDescription: paymentData.planId === "hobby" ? "balíček Hobby" : `Platba za balíček: ${paymentData.planName}`,
       userId: paymentData.userId,
       planId: paymentData.planId,
       planName: paymentData.planName,
@@ -92,7 +92,7 @@ async function createGoPayPayment(paymentData) {
       payerPhone: paymentData.userPhone,
       payerFirstName: paymentData.userFirstName,
       payerLastName: paymentData.userLastName,
-      returnUrl: `${window.location.origin}/packages.html`,
+      returnUrl: `https://vercel.bulldogo8.app/success`,
       // POZNÁMKA: Pokud dostáváte chybu 409, zkuste dočasně vypnout opakované platby
       // Opakované platby musí být aktivované v GoPay administraci
       // Pro testování můžete nastavit isRecurring: false

@@ -31,8 +31,10 @@ const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const axios_1 = __importDefault(require("axios"));
 const cors_1 = __importDefault(require("cors"));
-// Inicializace Firebase Admin
-admin.initializeApp();
+// Inicializace Firebase Admin (pouze pokud ještě není inicializováno)
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
 // CORS middleware
 const corsHandler = (0, cors_1.default)({ origin: true });
 // GoPay konfigurace z environment variables
@@ -614,10 +616,22 @@ exports.paymentReturn = functions.https.onRequest(async (req, res) => {
                         if (goPayPayment.state === "PAID") {
                             await activateUserPlan(orderNumber);
                         }
-                        // Přesměrování na frontend s parametry
-                        const frontendUrl = ((_a = functions.config().frontend) === null || _a === void 0 ? void 0 : _a.url) || "https://bulldogo.cz";
-                        const returnPath = `/packages.html?payment=${goPayPayment.state}&orderNumber=${orderNumber}&paymentId=${paymentId}`;
-                        res.redirect(`${frontendUrl}${returnPath}`);
+                        // Přesměrování na správné URL podle stavu platby
+                        // Pro Hobby balíček použijeme specifické URL
+                        if (orderNumber === "hobby") {
+                            if (goPayPayment.state === "PAID") {
+                                res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&paymentId=${paymentId}`);
+                            }
+                            else {
+                                res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&paymentId=${paymentId}&state=${goPayPayment.state}`);
+                            }
+                        }
+                        else {
+                            // Pro ostatní balíčky použijeme standardní přesměrování
+                            const frontendUrl = ((_a = functions.config().frontend) === null || _a === void 0 ? void 0 : _a.url) || "https://bulldogo.cz";
+                            const returnPath = `/packages.html?payment=${goPayPayment.state}&orderNumber=${orderNumber}&paymentId=${paymentId}`;
+                            res.redirect(`${frontendUrl}${returnPath}`);
+                        }
                         return;
                     }
                 }
@@ -625,14 +639,33 @@ exports.paymentReturn = functions.https.onRequest(async (req, res) => {
                     console.error("Error checking payment status:", error);
                 }
             }
-            // Fallback přesměrování
-            const frontendUrl = ((_b = functions.config().frontend) === null || _b === void 0 ? void 0 : _b.url) || "https://bulldogo.cz";
-            res.redirect(`${frontendUrl}/packages.html?payment=${state || "unknown"}`);
+            // Fallback přesměrování - pokud není paymentId, použijeme state z URL parametrů
+            // Pro Hobby balíček použijeme specifické URL
+            const orderNumber = req.query.orderNumber;
+            if (orderNumber === "hobby") {
+                if (state === "PAID") {
+                    res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&state=${state}`);
+                }
+                else {
+                    res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&state=${state || "unknown"}`);
+                }
+            }
+            else {
+                const frontendUrl = ((_b = functions.config().frontend) === null || _b === void 0 ? void 0 : _b.url) || "https://bulldogo.cz";
+                res.redirect(`${frontendUrl}/packages.html?payment=${state || "unknown"}`);
+            }
         }
         catch (error) {
             console.error("Payment return error:", error);
-            const frontendUrl = ((_c = functions.config().frontend) === null || _c === void 0 ? void 0 : _c.url) || "https://bulldogo.cz";
-            res.redirect(`${frontendUrl}/packages.html?payment=error`);
+            // Při chybě přesměrujeme na failed URL
+            const orderNumber = req.query.orderNumber;
+            if (orderNumber === "hobby") {
+                res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&error=true`);
+            }
+            else {
+                const frontendUrl = ((_c = functions.config().frontend) === null || _c === void 0 ? void 0 : _c.url) || "https://bulldogo.cz";
+                res.redirect(`${frontendUrl}/packages.html?payment=error`);
+            }
         }
     });
 });

@@ -116,8 +116,8 @@ function updatePaymentSummary() {
         switch(selectedPlan.plan) {
             case 'hobby':
                 planTitle = 'Hobby uživatel';
-                planType = 'První měsíc zdarma, poté 49 Kč/měsíc';
-                price = 49;
+                planType = 'První měsíc zdarma, poté 39 Kč/měsíc';
+                price = 39;
                 break;
             case 'business':
                 planTitle = 'Firma';
