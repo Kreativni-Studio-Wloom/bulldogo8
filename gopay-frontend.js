@@ -9,7 +9,11 @@
  * 3. Upravte funkci processPayment() v packages.js aby volala createGoPayPayment()
  */
 
-console.log("📦 gopay-frontend.js se načítá...");
+// OKAMŽITĚ při načtení skriptu - před jakýmkoliv jiným kódem
+(function() {
+  console.log("📦 gopay-frontend.js se načítá...", new Date().toISOString());
+  window._gopayFrontendLoading = true;
+})();
 
 // Konfigurace Firebase Functions URL
 // V produkci bude automaticky detekována, nebo můžete nastavit ručně
@@ -575,6 +579,10 @@ console.log("✅ GoPay funkce exportovány v", new Date().toISOString(), ":", {
   checkGoPayPayment: typeof window.checkGoPayPayment,
   processGoPayPayment: typeof window.processGoPayPayment,
 });
+
+// Označit, že načítání je dokončeno
+window._gopayFrontendLoaded = true;
+console.log("✅ gopay-frontend.js načten a připraven v", new Date().toISOString());
 
 // Automatická inicializace po načtení DOM
 if (document.readyState === "loading") {

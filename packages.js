@@ -4,12 +4,24 @@ let selectedPlan = null;
 window.selectedPlan = selectedPlan;
 
 // Initialize page
+// Funkce se exportují okamžitě při načtení gopay-frontend.js (bez defer)
+// Takže by měly být dostupné ještě před DOMContentLoaded
+console.log('📦 packages.js se načítá...', new Date().toISOString());
+console.log('📦 gopay-frontend.js loading state:', {
+    _gopayFrontendLoading: window._gopayFrontendLoading,
+    _gopayFrontendLoaded: window._gopayFrontendLoaded,
+    processGoPayPayment: typeof window.processGoPayPayment,
+    createGoPayPayment: typeof window.createGoPayPayment,
+});
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Počkat na načtení gopay-frontend.js
+    // Počkat na načtení gopay-frontend.js (max 3 sekundy)
+    let attempts = 0;
+    const maxAttempts = 30;
     (function waitForGoPay() {
         if (typeof window.processGoPayPayment === 'function' && 
             typeof window.createGoPayPayment === 'function') {
-            console.log('✅ gopay-frontend.js je načten');
+            console.log('✅ gopay-frontend.js je načten po', attempts * 100, 'ms');
             initializePackages();
             initializeAuthState();
             // Po načtení stránky vyčkej na Firebase a načti stav balíčku
@@ -21,9 +33,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(waitAndLoadPlan, 100);
                 }
             })();
-        } else {
-            console.log('⏳ Čekám na načtení gopay-frontend.js...');
+        } else if (attempts < maxAttempts) {
+            attempts++;
+            if (attempts % 10 === 0) {
+                console.log('⏳ Čekám na načtení gopay-frontend.js... (', attempts * 100, 'ms)');
+            }
             setTimeout(waitForGoPay, 100);
+        } else {
+            console.error('❌ gopay-frontend.js se nenačetl po 3 sekundách!');
+            console.error('❌ Dostupné:', {
+                processGoPayPayment: typeof window.processGoPayPayment,
+                createGoPayPayment: typeof window.createGoPayPayment,
+            });
+            // Přesto inicializovat, ale platby nebudou fungovat
+            initializePackages();
+            initializeAuthState();
         }
     })();
 });

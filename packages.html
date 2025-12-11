@@ -572,9 +572,9 @@
 
     <script src="script.js" defer></script>
     <script src="auth.js" defer></script>
-    <!-- gopay-frontend.js musí být načten PŘED packages.js -->
-    <script src="gopay-frontend.js" defer></script>
-    <!-- packages.js se načte až po gopay-frontend.js -->
+    <!-- gopay-frontend.js musí být načten PŘED packages.js - BEZ defer, aby se spustil okamžitě -->
+    <script src="gopay-frontend.js"></script>
+    <!-- packages.js se načte s defer, takže se spustí až po gopay-frontend.js -->
     <script src="packages.js" defer></script>
 </body>
 </html>
