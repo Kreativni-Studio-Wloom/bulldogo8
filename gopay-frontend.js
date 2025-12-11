@@ -247,6 +247,9 @@ async function checkGoPayPayment(paymentId, orderNumber) {
   }
 }
 
+// Exportovat funkci OKAMŽITĚ po definici
+window.checkGoPayPayment = checkGoPayPayment;
+
 /**
  * Získá informace o aktuálně přihlášeném uživateli
  */
@@ -494,12 +497,13 @@ function initGoPayIntegration() {
 
   // Zpracování návratu z GoPay (kontrola URL parametrů)
   handleGoPayReturn();
-
-  // Exportovat funkci pro použití v packages.js
-  window.processGoPayPayment = processGoPayPayment;
   
-  // Pokud existuje globální funkce processPayment, necháme ji, ale přidáme fallback
-  // packages.js bude volat processGoPayPayment přímo
+  // Funkce jsou již exportovány výše, jen ověříme
+  console.log("✅ GoPay funkce dostupné:", {
+    processGoPayPayment: typeof window.processGoPayPayment,
+    createGoPayPayment: typeof window.createGoPayPayment,
+    checkGoPayPayment: typeof window.checkGoPayPayment,
+  });
 }
 
 /**
@@ -539,6 +543,12 @@ async function processGoPayPayment() {
     });
 
     console.log("✅ Platba vytvořena, přesměrování na GoPay...");
+    console.log("🔗 gwUrl:", paymentResult.gwUrl);
+
+    // Validace gwUrl před přesměrováním
+    if (!paymentResult.gwUrl) {
+      throw new Error("GoPay nevrátil platební URL");
+    }
 
     // Přesměrování na GoPay platební bránu
     window.location.href = paymentResult.gwUrl;
@@ -548,15 +558,21 @@ async function processGoPayPayment() {
   }
 }
 
+// Exportovat funkci OKAMŽITĚ po definici
+window.processGoPayPayment = processGoPayPayment;
+
+// Funkce jsou již exportovány výše po jejich definici
+// Tento log pouze ověří, že jsou dostupné
+console.log("✅ GoPay funkce exportovány:", {
+  createGoPayPayment: typeof window.createGoPayPayment,
+  checkGoPayPayment: typeof window.checkGoPayPayment,
+  processGoPayPayment: typeof window.processGoPayPayment,
+});
+
 // Automatická inicializace po načtení DOM
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initGoPayIntegration);
 } else {
   initGoPayIntegration();
 }
-
-// Export funkcí pro globální použití
-window.createGoPayPayment = createGoPayPayment;
-window.checkGoPayPayment = checkGoPayPayment;
-window.processGoPayPayment = processGoPayPayment;
 

@@ -144,14 +144,32 @@ async function processPayment() {
         return;
     }
     
+    // DEBUG: Zkontrolovat dostupné funkce
+    console.log('🔍 DEBUG - Dostupné funkce:', {
+        processGoPayPayment: typeof window.processGoPayPayment,
+        createGoPayPayment: typeof window.createGoPayPayment,
+        createGoPayUrl: typeof window.createGoPayUrl,
+        selectedPlan: window.selectedPlan,
+    });
+    
     // Použít novou funkci z gopay-frontend.js, pokud je dostupná (REST API)
     if (typeof window.processGoPayPayment === 'function') {
         console.log('💳 Používám REST API pro vytvoření platby');
-        return await window.processGoPayPayment();
+        try {
+            return await window.processGoPayPayment();
+        } catch (error) {
+            console.error('❌ Chyba při volání processGoPayPayment:', error);
+            throw error;
+        }
     }
     
     // Fallback na starý způsob (pokud gopay-frontend.js není načten)
     console.warn('⚠️ gopay-frontend.js není načten, používám starý způsob');
+    console.warn('⚠️ Dostupné funkce:', {
+        processGoPayPayment: typeof window.processGoPayPayment,
+        createGoPayPayment: typeof window.createGoPayPayment,
+        createGoPayUrl: typeof window.createGoPayUrl,
+    });
     if (typeof window.createGoPayUrl !== 'function') {
         showMessage("GoPay konfigurace není načtena. Obnovte prosím stránku.", "error");
         return;
