@@ -19,7 +19,15 @@ const getFunctionsUrl = () => {
   // Automatická detekce URL podle projektu
   // Formát: https://REGION-PROJECT-ID.cloudfunctions.net
   const projectId = "inzerio-inzerce"; // Váš Firebase Project ID
-  const region = "europe-west1"; // Region, kde běží Functions (po nasazení zjistíte v konzoli)
+  
+  // ⚠️ DŮLEŽITÉ: Zkontrolujte správný region!
+  // Po nasazení Functions (firebase deploy --only functions) se zobrazí URL
+  // Zkopírujte region z URL a nastavte ho zde
+  // Nebo zkontrolujte Firebase Console → Functions → URL funkcí
+  const region = "europe-west1"; // ⚠️ ZMĚŇTE pokud Functions běží na jiném regionu!
+  
+  // Možné regiony: europe-west1, us-central1, asia-east1, atd.
+  // Zkontrolujte v Firebase Console → Functions → URL
   
   // Pro lokální vývoj
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
@@ -27,8 +35,9 @@ const getFunctionsUrl = () => {
   }
   
   // Pro produkci - automaticky použije správnou URL
-  // POZOR: Po nasazení Functions zkontrolujte v konzoli, zda region odpovídá!
-  return `https://${region}-${projectId}.cloudfunctions.net`;
+  const url = `https://${region}-${projectId}.cloudfunctions.net`;
+  console.log(`🔗 Používám Firebase Functions URL: ${url}`);
+  return url;
 };
 
 const FUNCTIONS_BASE_URL = getFunctionsUrl();
@@ -89,17 +98,41 @@ async function createGoPayPayment(paymentData) {
     };
 
     // Volání Firebase Function
-    const response = await fetch(`${FUNCTIONS_BASE_URL}/createPayment`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestData),
-    });
+    let response;
+    try {
+      response = await fetch(`${FUNCTIONS_BASE_URL}/createPayment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+    } catch (fetchError) {
+      // Pokud je 404, Functions pravděpodobně nejsou nasazeny nebo je špatný region
+      if (fetchError.message.includes("404") || fetchError.message.includes("Load failed")) {
+        throw new Error(
+          `Firebase Functions endpoint není dostupný (404). ` +
+          `Zkontrolujte:\n` +
+          `1. Jsou Functions nasazeny? (firebase deploy --only functions)\n` +
+          `2. Je správný region v gopay-frontend.js řádek 22?\n` +
+          `3. Zkontrolujte Firebase Console → Functions → URL funkcí\n` +
+          `Aktuální URL: ${FUNCTIONS_BASE_URL}/createPayment`
+        );
+      }
+      throw fetchError;
+    }
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || "Chyba při vytváření platby");
+      // Pokud je 404, poskytneme uživatelsky přívětivou zprávu
+      if (response.status === 404) {
+        throw new Error(
+          `Firebase Functions endpoint nebyl nalezen (404). ` +
+          `Zkontrolujte Firebase Console → Functions a ověřte region. ` +
+          `Aktuální URL: ${FUNCTIONS_BASE_URL}/createPayment`
+        );
+      }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || `Chyba při vytváření platby (${response.status})`);
     }
 
     const result = await response.json();
