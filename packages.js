@@ -5,15 +5,25 @@ window.selectedPlan = selectedPlan;
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    initializePackages();
-    initializeAuthState();
-    // Po načtení stránky vyčkej na Firebase a načti stav balíčku
-    (function waitAndLoadPlan(){
-        if (window.firebaseAuth && window.firebaseDb) {
-            loadCurrentPlan();
-            showManageSectionIfNeeded();
+    // Počkat na načtení gopay-frontend.js
+    (function waitForGoPay() {
+        if (typeof window.processGoPayPayment === 'function' && 
+            typeof window.createGoPayPayment === 'function') {
+            console.log('✅ gopay-frontend.js je načten');
+            initializePackages();
+            initializeAuthState();
+            // Po načtení stránky vyčkej na Firebase a načti stav balíčku
+            (function waitAndLoadPlan(){
+                if (window.firebaseAuth && window.firebaseDb) {
+                    loadCurrentPlan();
+                    showManageSectionIfNeeded();
+                } else {
+                    setTimeout(waitAndLoadPlan, 100);
+                }
+            })();
         } else {
-            setTimeout(waitAndLoadPlan, 100);
+            console.log('⏳ Čekám na načtení gopay-frontend.js...');
+            setTimeout(waitForGoPay, 100);
         }
     })();
 });

@@ -9,6 +9,8 @@
  * 3. Upravte funkci processPayment() v packages.js aby volala createGoPayPayment()
  */
 
+console.log("📦 gopay-frontend.js se načítá...");
+
 // Konfigurace Firebase Functions URL
 // V produkci bude automaticky detekována, nebo můžete nastavit ručně
 const getFunctionsUrl = () => {
@@ -210,7 +212,7 @@ async function createGoPayPayment(paymentData) {
 
 // Exportovat funkci OKAMŽITĚ po definici
 window.createGoPayPayment = createGoPayPayment;
-console.log("✅ createGoPayPayment exportována");
+console.log("✅ createGoPayPayment exportována v", new Date().toISOString());
 
 /**
  * Ověří stav platby v GoPay
@@ -564,11 +566,11 @@ async function processGoPayPayment() {
 
 // Exportovat funkci OKAMŽITĚ po definici
 window.processGoPayPayment = processGoPayPayment;
-console.log("✅ processGoPayPayment exportována");
+console.log("✅ processGoPayPayment exportována v", new Date().toISOString());
 
 // Funkce jsou již exportovány výše po jejich definici
 // Tento log pouze ověří, že jsou dostupné
-console.log("✅ GoPay funkce exportovány:", {
+console.log("✅ GoPay funkce exportovány v", new Date().toISOString(), ":", {
   createGoPayPayment: typeof window.createGoPayPayment,
   checkGoPayPayment: typeof window.checkGoPayPayment,
   processGoPayPayment: typeof window.processGoPayPayment,
