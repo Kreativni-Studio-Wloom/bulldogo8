@@ -157,7 +157,7 @@ async function createGoPayPayment(paymentData) {
             ? [errorData.details.error] 
             : [];
         
-        const errorMessages = errors.map((err: any) => {
+        const errorMessages = errors.map((err) => {
           if (typeof err === 'string') return err;
           return err.message || err.error_name || JSON.stringify(err);
         }).join(', ');
