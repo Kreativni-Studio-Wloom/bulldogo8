@@ -93,6 +93,9 @@ async function createGoPayPayment(paymentData) {
       payerFirstName: paymentData.userFirstName,
       payerLastName: paymentData.userLastName,
       returnUrl: `${window.location.origin}/packages.html`,
+      // POZNÁMKA: Pokud dostáváte chybu 409, zkuste dočasně vypnout opakované platby
+      // Opakované platby musí být aktivované v GoPay administraci
+      // Pro testování můžete nastavit isRecurring: false
       isRecurring: paymentData.isRecurring !== undefined ? paymentData.isRecurring : true, // Pro balíčky je opakovaná platba defaultně true
       recurrenceDateTo: paymentData.recurrenceDateTo || "2099-12-31", // Defaultně do konce roku 2099
     };
@@ -131,8 +134,36 @@ async function createGoPayPayment(paymentData) {
           `Aktuální URL: ${FUNCTIONS_BASE_URL}/createPayment`
         );
       }
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `Chyba při vytváření platby (${response.status})`);
+      
+      // Zkusit získat detailní chybovou zprávu
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { error: `HTTP ${response.status}`, message: response.statusText };
+      }
+      
+      // Pokud je 409 (Conflict), zobrazit validační chyby z GoPay
+      if (response.status === 409 && errorData.details) {
+        const errors = Array.isArray(errorData.details.errors) 
+          ? errorData.details.errors 
+          : errorData.details.error 
+            ? [errorData.details.error] 
+            : [];
+        
+        const errorMessages = errors.map((err: any) => {
+          if (typeof err === 'string') return err;
+          return err.message || err.error_name || JSON.stringify(err);
+        }).join(', ');
+        
+        throw new Error(
+          `Validační chyba GoPay: ${errorMessages || errorData.details.message || errorData.message || 'Neznámá chyba'}`
+        );
+      }
+      
+      // Obecná chybová zpráva
+      const errorMessage = errorData.details?.message || errorData.message || errorData.error || `Chyba při vytváření platby (${response.status})`;
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
@@ -472,6 +503,8 @@ async function processGoPayPayment() {
     showPaymentLoading("Připravuji platbu...");
 
     // Vytvořit platbu v GoPay
+    // POZNÁMKA: Pokud dostáváte chybu 409, zkuste dočasně vypnout opakované platby
+    // nastavením isRecurring: false pro testování
     const paymentResult = await createGoPayPayment({
       amount: window.selectedPlan.price,
       planId: window.selectedPlan.plan,
@@ -481,7 +514,10 @@ async function processGoPayPayment() {
       userPhone: userInfo.phone,
       userFirstName: userInfo.firstName,
       userLastName: userInfo.lastName,
-      isRecurring: true, // Balíčky jsou opakované platby (předplatné)
+      // DOČASNĚ VYPNUTO: Pokud dostáváte chybu 409, opakované platby nejsou aktivované v GoPay
+      // Pro aktivaci kontaktujte GoPay podporu: integrace@gopay.cz
+      // Po aktivaci změňte zpět na: isRecurring: true
+      isRecurring: false, // DOČASNĚ VYPNUTO - aktivujte v GoPay administraci
     });
 
     console.log("✅ Platba vytvořena, přesměrování na GoPay...");

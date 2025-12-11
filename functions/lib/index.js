@@ -111,7 +111,7 @@ async function getGoPayAccessToken(scope = "payment-create") {
  */
 exports.createPayment = functions.https.onRequest(async (req, res) => {
     return corsHandler(req, res, async () => {
-        var _a, _b, _c;
+        var _a, _b, _c, _d, _e, _f;
         try {
             // Povolit pouze POST
             if (req.method !== "POST") {
@@ -167,20 +167,51 @@ exports.createPayment = functions.https.onRequest(async (req, res) => {
                 lang: "cs",
             };
             // Přidat opakovanou platbu, pokud je požadována
+            // POZNÁMKA: Opakované platby musí být aktivované v GoPay administraci
+            // Pokud dostáváte chybu 409, zkuste dočasně vypnout opakované platby (isRecurring: false)
             if (isRecurring) {
                 // Pro balíčky nastavíme měsíční opakování
-                const dateTo = recurrenceDateTo || "2099-12-31"; // Defaultně do konce roku 2099
+                // Validace data - musí být větší než aktuální datum a menší než 2099-12-31
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const maxDate = new Date("2099-12-31");
+                maxDate.setHours(23, 59, 59, 999);
+                let dateTo = recurrenceDateTo || "2099-12-31";
+                const dateToObj = new Date(dateTo);
+                // Validace, že datum je v budoucnosti
+                if (dateToObj <= today) {
+                    console.warn(`recurrence_date_to ${dateTo} je v minulosti, použiji max datum`);
+                    dateTo = "2099-12-31";
+                }
+                // Validace, že datum není větší než max
+                if (dateToObj > maxDate) {
+                    console.warn(`recurrence_date_to ${dateTo} je větší než max, použiji max datum`);
+                    dateTo = "2099-12-31";
+                }
                 paymentData.recurrence = {
                     recurrence_cycle: "MONTH",
                     recurrence_period: 1,
                     recurrence_date_to: dateTo,
                 };
+                console.log("Přidávám opakovanou platbu:", paymentData.recurrence);
             }
+            else {
+                console.log("Opakované platby jsou vypnuté (isRecurring: false)");
+            }
+            // Logování dat před odesláním (bez citlivých údajů)
+            console.log("Odesílám platbu do GoPay:", {
+                amount: paymentData.amount,
+                currency: paymentData.currency,
+                order_number: paymentData.order_number,
+                hasRecurrence: !!paymentData.recurrence,
+                recurrence: paymentData.recurrence,
+            });
             // Vytvoření platby v GoPay
             const paymentResponse = await axios_1.default.post(`${gopayConfig.apiUrl}/payments/payment`, paymentData, {
                 headers: {
                     "Authorization": `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
+                    "Accept": "application/json",
                 },
             });
             const goPayPayment = paymentResponse.data;
@@ -212,10 +243,39 @@ exports.createPayment = functions.https.onRequest(async (req, res) => {
         }
         catch (error) {
             console.error("Create payment error:", error);
+            // Pokud je to GoPay API chyba, vrať detailní informace
+            if (error.response) {
+                const status = error.response.status;
+                const goPayError = error.response.data;
+                console.error("GoPay API error:", {
+                    status,
+                    data: goPayError,
+                });
+                // Pro validační chyby (409) vrať detailní informace
+                if (status === 409) {
+                    res.status(409).json({
+                        error: "GoPay validation error",
+                        message: ((_d = (_c = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _c === void 0 ? void 0 : _c[0]) === null || _d === void 0 ? void 0 : _d.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || "Validační chyba",
+                        details: {
+                            errors: (goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.error) || goPayError,
+                            message: goPayError === null || goPayError === void 0 ? void 0 : goPayError.message,
+                        },
+                    });
+                    return;
+                }
+                // Pro ostatní chyby
+                res.status(status || 500).json({
+                    error: "Failed to create payment",
+                    message: ((_f = (_e = goPayError === null || goPayError === void 0 ? void 0 : goPayError.errors) === null || _e === void 0 ? void 0 : _e[0]) === null || _f === void 0 ? void 0 : _f.message) || (goPayError === null || goPayError === void 0 ? void 0 : goPayError.message) || error.message,
+                    details: goPayError,
+                });
+                return;
+            }
+            // Obecná chyba
             res.status(500).json({
                 error: "Failed to create payment",
                 message: error.message,
-                details: ((_c = error.response) === null || _c === void 0 ? void 0 : _c.data) || undefined,
+                details: undefined,
             });
         }
     });
