@@ -144,12 +144,21 @@ async function processPayment() {
         return;
     }
     
+    // Počkat na načtení gopay-frontend.js (max 2 sekundy)
+    let attempts = 0;
+    const maxAttempts = 20;
+    while (typeof window.processGoPayPayment !== 'function' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+    
     // DEBUG: Zkontrolovat dostupné funkce
     console.log('🔍 DEBUG - Dostupné funkce:', {
         processGoPayPayment: typeof window.processGoPayPayment,
         createGoPayPayment: typeof window.createGoPayPayment,
         createGoPayUrl: typeof window.createGoPayUrl,
         selectedPlan: window.selectedPlan,
+        attempts: attempts,
     });
     
     // Použít novou funkci z gopay-frontend.js, pokud je dostupná (REST API)
@@ -163,79 +172,15 @@ async function processPayment() {
         }
     }
     
-    // Fallback na starý způsob (pokud gopay-frontend.js není načten)
-    console.warn('⚠️ gopay-frontend.js není načten, používám starý způsob');
-    console.warn('⚠️ Dostupné funkce:', {
+    // Pokud gopay-frontend.js není načten, zobrazit chybu
+    console.error('❌ gopay-frontend.js není načten po 2 sekundách');
+    console.error('❌ Dostupné funkce:', {
         processGoPayPayment: typeof window.processGoPayPayment,
         createGoPayPayment: typeof window.createGoPayPayment,
         createGoPayUrl: typeof window.createGoPayUrl,
     });
-    if (typeof window.createGoPayUrl !== 'function') {
-        showMessage("GoPay konfigurace není načtena. Obnovte prosím stránku.", "error");
-        return;
-    }
-    
-    try {
-        // Získat platební URL
-        const planId = window.selectedPlan.plan; // 'hobby' nebo 'business'
-        const paymentUrl = window.createGoPayUrl('package', planId);
-        
-        console.log('💳 Přesměrování na GoPay:', paymentUrl);
-        
-        // Zobrazit loading stav
-        const payButton = document.querySelector('.payment-actions .btn-primary');
-        const originalText = payButton.innerHTML;
-        payButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Přesměrovávám...';
-        payButton.disabled = true;
-        
-        // Uložit informace o platbě do sessionStorage pro pozdější zpracování
-        const paymentConfig = window.getPaymentConfig('package', planId);
-        
-        // DŮLEŽITÉ: Uložit také informace o uživateli, protože Auth session se může neobnovit po návratu z GoPay
-        let userInfo = null;
-        if (window.firebaseAuth && window.firebaseAuth.currentUser) {
-            userInfo = {
-                uid: window.firebaseAuth.currentUser.uid,
-                email: window.firebaseAuth.currentUser.email
-            };
-        }
-        
-        sessionStorage.setItem('gopay_payment', JSON.stringify({
-            type: 'package',
-            id: planId,
-            orderNumber: paymentConfig.orderNumber,
-            amount: paymentConfig.amount,
-            timestamp: Date.now(),
-            userId: userInfo?.uid || null,
-            userEmail: userInfo?.email || null
-        }));
-        
-        // Uložit také samostatně pro snadný přístup
-        if (userInfo) {
-            sessionStorage.setItem('firebase_user', JSON.stringify(userInfo));
-        }
-        
-        console.log('💾 Uloženo do sessionStorage:', { payment: planId, user: userInfo });
-        
-        // Přesměrovat na GoPay platební bránu
-        window.location.href = paymentUrl;
-        
-    } catch (error) {
-        console.error('❌ Chyba při vytváření platební URL:', error);
-        const showMsg = window.showMessage || showMessage;
-        if (typeof showMsg === 'function') {
-            showMsg("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.", "error");
-        } else {
-            alert("Nepodařilo se vytvořit platební odkaz. Zkuste to prosím znovu.");
-        }
-        
-        // Obnovit tlačítko
-        const payButton = document.querySelector('.payment-actions .btn-primary');
-        if (payButton) {
-            payButton.innerHTML = '<i class="fas fa-credit-card"></i> Zaplatit';
-            payButton.disabled = false;
-        }
-    }
+    showMessage("GoPay integrace není načtena. Obnovte prosím stránku (Ctrl+F5 nebo Cmd+Shift+R pro vymazání cache).", "error");
+    return;
 }
 
 async function showSuccess() {

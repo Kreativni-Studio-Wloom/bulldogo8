@@ -572,21 +572,9 @@
 
     <script src="script.js" defer></script>
     <script src="auth.js" defer></script>
-    <script src="gopay-config.js" defer></script>
-    <!-- gopay-frontend.js musí být načten PŘED packages.js a BEZ defer -->
+    <!-- gopay-frontend.js musí být načten PŘED packages.js -->
     <script src="gopay-frontend.js"></script>
-    <script>
-        // Ověřit, že funkce jsou dostupné
-        (function checkGoPayFunctions() {
-            if (typeof window.processGoPayPayment === 'function') {
-                console.log('✅ processGoPayPayment je dostupná');
-            } else {
-                console.warn('⚠️ processGoPayPayment není dostupná - čekám...');
-                // Zkusit znovu po 100ms
-                setTimeout(checkGoPayFunctions, 100);
-            }
-        })();
-    </script>
+    <!-- packages.js se načte až po gopay-frontend.js -->
     <script src="packages.js" defer></script>
 </body>
 </html>
