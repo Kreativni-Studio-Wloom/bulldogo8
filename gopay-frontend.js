@@ -208,6 +208,10 @@ async function createGoPayPayment(paymentData) {
   }
 }
 
+// Exportovat funkci OKAMŽITĚ po definici
+window.createGoPayPayment = createGoPayPayment;
+console.log("✅ createGoPayPayment exportována");
+
 /**
  * Ověří stav platby v GoPay
  * 
@@ -560,6 +564,7 @@ async function processGoPayPayment() {
 
 // Exportovat funkci OKAMŽITĚ po definici
 window.processGoPayPayment = processGoPayPayment;
+console.log("✅ processGoPayPayment exportována");
 
 // Funkce jsou již exportovány výše po jejich definici
 // Tento log pouze ověří, že jsou dostupné
