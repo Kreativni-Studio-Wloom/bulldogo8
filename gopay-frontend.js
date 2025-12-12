@@ -94,14 +94,14 @@ async function createGoPayPayment(paymentData) {
       amount: paymentData.amount, // v Kč (např. 39)
       currency: "CZK",
       orderNumber: orderNumber,
-      orderDescription: paymentData.planId === "hobby" ? "balíček Hobby" : `Platba za balíček: ${paymentData.planName}`,
+      orderDescription: paymentData.planId === "hobby" ? "Hobby Balicek" : `Platba za balíček: ${paymentData.planName}`,
       userId: paymentData.userId,
       planId: paymentData.planId,
       planName: paymentData.planName,
       // Items se posílají s amount v Kč, backend je převede na haléře
       items: [
         {
-          name: paymentData.planName,
+          name: paymentData.planId === "hobby" ? "Hobby Balicek" : paymentData.planName,
           amount: paymentData.amount, // v Kč, backend převede na haléře
           count: 1,
         },
@@ -110,7 +110,7 @@ async function createGoPayPayment(paymentData) {
       payerPhone: paymentData.userPhone,
       payerFirstName: paymentData.userFirstName,
       payerLastName: paymentData.userLastName,
-      returnUrl: `https://vercel.bulldogo8.app/success`,
+      returnUrl: `https://bulldogo8.vercel.app/success`,
       // POZNÁMKA: Pokud dostáváte chybu 409, zkuste dočasně vypnout opakované platby
       // Opakované platby musí být aktivované v GoPay administraci
       // Pro testování můžete nastavit isRecurring: false

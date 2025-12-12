@@ -843,9 +843,9 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
             // Pro Hobby balíček použijeme specifické URL (orderNumber začíná "hobby-")
             if (orderNumber && orderNumber.startsWith("hobby-")) {
               if (goPayPayment.state === "PAID") {
-                res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&paymentId=${paymentId}`);
+                res.redirect(`https://bulldogo8.vercel.app/success?orderNumber=${orderNumber}&paymentId=${paymentId}`);
               } else {
-                res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&paymentId=${paymentId}&state=${goPayPayment.state}`);
+                res.redirect(`https://bulldogo8.vercel.app/failed?orderNumber=${orderNumber}&paymentId=${paymentId}&state=${goPayPayment.state}`);
               }
             } else {
               // Pro ostatní balíčky použijeme standardní přesměrování
@@ -865,9 +865,9 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
       const orderNumber = req.query.orderNumber as string;
       if (orderNumber && orderNumber.startsWith("hobby-")) {
         if (state === "PAID") {
-          res.redirect(`https://vercel.bulldogo8.app/success?orderNumber=${orderNumber}&state=${state}`);
+          res.redirect(`https://bulldogo8.vercel.app/success?orderNumber=${orderNumber}&state=${state}`);
         } else {
-          res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&state=${state || "unknown"}`);
+          res.redirect(`https://bulldogo8.vercel.app/failed?orderNumber=${orderNumber}&state=${state || "unknown"}`);
         }
       } else {
         const frontendUrl = functions.config().frontend?.url || "https://bulldogo.cz";
@@ -878,7 +878,7 @@ export const paymentReturn = functions.https.onRequest(async (req, res) => {
       // Při chybě přesměrujeme na failed URL
       const orderNumber = req.query.orderNumber as string;
       if (orderNumber && orderNumber.startsWith("hobby-")) {
-        res.redirect(`https://vercel.bulldogo8.app/failed?orderNumber=${orderNumber}&error=true`);
+        res.redirect(`https://bulldogo8.vercel.app/failed?orderNumber=${orderNumber}&error=true`);
       } else {
         const frontendUrl = functions.config().frontend?.url || "https://bulldogo.cz";
         res.redirect(`${frontendUrl}/packages.html?payment=error`);
