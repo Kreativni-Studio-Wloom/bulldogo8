@@ -95,6 +95,23 @@
     </div>
 
     <script>
+        // ZABEZPEČENÍ: Zkontrolovat, zda stránku otevřel uživatel přímo nebo přes GoPay
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasOrderNumber = urlParams.has('orderNumber');
+            const hasPaymentId = urlParams.has('paymentId');
+            const hasPaymentSessionId = urlParams.has('paymentSessionId');
+            const hasIdPaymentSession = urlParams.has('idPaymentSession');
+            const hasState = urlParams.has('state');
+            
+            // Pokud nejsou žádné platební parametry, přesměrovat na packages.html
+            if (!hasOrderNumber && !hasPaymentId && !hasPaymentSessionId && !hasIdPaymentSession && !hasState) {
+                console.warn('⚠️ Stránka success.html byla otevřena přímo bez platebních parametrů. Přesměrovávám na packages.html');
+                window.location.href = 'packages.html';
+                return;
+            }
+        })();
+        
         // Zpracování informací o platbě z GoPay
         document.addEventListener('DOMContentLoaded', async function() {
             const loadingMessage = document.getElementById('loadingMessage');

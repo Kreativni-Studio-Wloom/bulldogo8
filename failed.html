@@ -85,6 +85,24 @@
     <script src="gopay-config.js" defer></script>
     <script src="gopay-payment-handler.js" defer></script>
     <script>
+        // ZABEZPEČENÍ: Zkontrolovat, zda stránku otevřel uživatel přímo nebo přes GoPay
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasOrderNumber = urlParams.has('orderNumber');
+            const hasPaymentId = urlParams.has('paymentId');
+            const hasPaymentSessionId = urlParams.has('paymentSessionId');
+            const hasIdPaymentSession = urlParams.has('idPaymentSession');
+            const hasState = urlParams.has('state');
+            const hasError = urlParams.has('error');
+            
+            // Pokud nejsou žádné platební parametry, přesměrovat na packages.html
+            if (!hasOrderNumber && !hasPaymentId && !hasPaymentSessionId && !hasIdPaymentSession && !hasState && !hasError) {
+                console.warn('⚠️ Stránka failed.html byla otevřena přímo bez platebních parametrů. Přesměrovávám na packages.html');
+                window.location.href = 'packages.html';
+                return;
+            }
+        })();
+        
         // Zpracování zrušené platby
         document.addEventListener('DOMContentLoaded', async function() {
             try {
