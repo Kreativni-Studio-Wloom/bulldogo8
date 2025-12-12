@@ -178,6 +178,14 @@ async function processPayment() {
         return;
     }
     
+    // Pro hobby balíček přesměrovat přímo na GoPay platební bránu
+    if (window.selectedPlan.plan === "hobby") {
+        const gopayUrl = "https://gw.sandbox.gopay.com/gw/pay-base-v2?paymentCommand.targetGoId=8419533331&paymentCommand.totalPrice=3900&paymentCommand.currency=CZK&paymentCommand.productName=Hobby+Balicek&paymentCommand.orderNumber=hobby&paymentCommand.successURL=https%3A%2F%2Fbulldogo8.vercel.app%2Fsuccess&paymentCommand.failedURL=https%3A%2F%2Fbulldogo8.vercel.app%2Ffailed&paymentCommand.encryptedSignature=629530492aeadc6425a09005f9045c25a9b93ff1922f7ad02bc3f7c6df59d766700e475c0122338e341f58f210b5cf53";
+        window.location.href = gopayUrl;
+        return;
+    }
+    
+    // Pro ostatní balíčky použít REST API
     // Počkat na načtení gopay-frontend.js (max 2 sekundy)
     let attempts = 0;
     const maxAttempts = 20;
@@ -186,16 +194,6 @@ async function processPayment() {
         attempts++;
     }
     
-    // DEBUG: Zkontrolovat dostupné funkce
-    console.log('🔍 DEBUG - Dostupné funkce:', {
-        processGoPayPayment: typeof window.processGoPayPayment,
-        createGoPayPayment: typeof window.createGoPayPayment,
-        createGoPayUrl: typeof window.createGoPayUrl,
-        selectedPlan: window.selectedPlan,
-        attempts: attempts,
-    });
-    
-    // Použít novou funkci z gopay-frontend.js, pokud je dostupná (REST API)
     if (typeof window.processGoPayPayment === 'function') {
         console.log('💳 Používám REST API pro vytvoření platby');
         try {
@@ -206,13 +204,6 @@ async function processPayment() {
         }
     }
     
-    // Pokud gopay-frontend.js není načten, zobrazit chybu
-    console.error('❌ gopay-frontend.js není načten po 2 sekundách');
-    console.error('❌ Dostupné funkce:', {
-        processGoPayPayment: typeof window.processGoPayPayment,
-        createGoPayPayment: typeof window.createGoPayPayment,
-        createGoPayUrl: typeof window.createGoPayUrl,
-    });
     showMessage("GoPay integrace není načtena. Obnovte prosím stránku (Ctrl+F5 nebo Cmd+Shift+R pro vymazání cache).", "error");
     return;
 }
