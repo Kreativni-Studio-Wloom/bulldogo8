@@ -185,6 +185,13 @@ async function processPayment() {
         return;
     }
     
+    // Pro firma balíček přesměrovat přímo na GoPay platební bránu
+    if (window.selectedPlan.plan === "business") {
+        const gopayUrl = "https://gw.sandbox.gopay.com/gw/pay-base-v2?paymentCommand.targetGoId=8419533331&paymentCommand.totalPrice=14900&paymentCommand.currency=CZK&paymentCommand.productName=Firma+Balicek&paymentCommand.orderNumber=firma&paymentCommand.successURL=https%3A%2F%2Fbulldogo8.vercel.app%2Fsuccess&paymentCommand.failedURL=https%3A%2F%2Fbulldogo8.vercel.app%2Ffailed&paymentCommand.encryptedSignature=1ae464d46f098466e3b5014152b2b32b5f5935f724a7e87fb942f35e6bba53e348fbbf2540a64bf1341f58f210b5cf53";
+        window.location.href = gopayUrl;
+        return;
+    }
+    
     // Pro ostatní balíčky použít REST API
     // Počkat na načtení gopay-frontend.js (max 2 sekundy)
     let attempts = 0;
